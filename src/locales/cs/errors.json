@@ -1,0 +1,18 @@
+{
+  "general": {
+    "unknown": "Doslo k neocekavane chybe",
+    "network": "Chyba pripojeni k siti",
+    "server": "Chyba serveru, zkuste to prosim pozdeji",
+    "notFound": "Stranka nebyla nalezena",
+    "forbidden": "Pristup zamitnut",
+    "unauthorized": "Pro pristup se musite prihlasit"
+  },
+  "form": {
+    "submitFailed": "Odeslani formulare se nezdarilo",
+    "validationFailed": "Opravte prosim chyby ve formulari"
+  },
+  "api": {
+    "timeout": "Pozadavek vyprsel, zkuste to znovu",
+    "rateLimit": "Prilis mnoho pozadavku, zkuste to pozdeji"
+  }
+}

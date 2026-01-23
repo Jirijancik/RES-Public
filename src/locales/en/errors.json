@@ -1,0 +1,18 @@
+{
+  "general": {
+    "unknown": "An unexpected error occurred",
+    "network": "Network connection error",
+    "server": "Server error, please try again later",
+    "notFound": "Page not found",
+    "forbidden": "Access denied",
+    "unauthorized": "You must be logged in to access this"
+  },
+  "form": {
+    "submitFailed": "Form submission failed",
+    "validationFailed": "Please fix the errors in the form"
+  },
+  "api": {
+    "timeout": "Request timed out, please try again",
+    "rateLimit": "Too many requests, please try again later"
+  }
+}

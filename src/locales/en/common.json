@@ -1,0 +1,36 @@
+{
+  "navigation": {
+    "home": "Home",
+    "contact": "Contact",
+    "gdpr": "Privacy Policy",
+    "cookies": "Cookies"
+  },
+  "footer": {
+    "navigation": "Navigation",
+    "legal": "Legal",
+    "socialMedia": "Social Media",
+    "cookieSettings": "Cookie Settings",
+    "copyright": "Copyright",
+    "allRightsReserved": "All rights reserved.",
+    "scrollToTop": "Scroll to top",
+    "createdBy": "Created by"
+  },
+  "buttons": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "open": "Open",
+    "loading": "Loading..."
+  },
+  "language": {
+    "cs": "Czech",
+    "en": "English",
+    "switchTo": "Switch language"
+  }
+}

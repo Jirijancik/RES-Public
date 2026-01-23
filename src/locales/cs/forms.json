@@ -1,0 +1,42 @@
+{
+  "labels": {
+    "email": "E-mail",
+    "name": "Jmeno",
+    "firstName": "Krestni jmeno",
+    "lastName": "Prijmeni",
+    "phone": "Telefon",
+    "message": "Zprava",
+    "subject": "Predmet",
+    "company": "Spolecnost",
+    "website": "Webove stranky",
+    "address": "Adresa",
+    "city": "Mesto",
+    "country": "Zeme",
+    "postalCode": "PSC",
+    "password": "Heslo",
+    "confirmPassword": "Potvrdit heslo"
+  },
+  "placeholders": {
+    "email": "vas@email.cz",
+    "name": "Vase jmeno",
+    "phone": "+420 123 456 789",
+    "message": "Napiste nam svou zpravu...",
+    "subject": "O cem chcete mluvit?"
+  },
+  "validation": {
+    "required": "Toto pole je povinne",
+    "email": {
+      "invalid": "Neplatny format e-mailu"
+    },
+    "minLength": "Minimalne {{min}} znaku",
+    "maxLength": "Maximalne {{max}} znaku",
+    "phone": {
+      "invalid": "Neplatne telefonni cislo"
+    }
+  },
+  "consent": {
+    "gdpr": "Souhlasim se zpracovanim osobnich udaju",
+    "newsletter": "Chci odebirat novinky",
+    "terms": "Souhlasim s obchodnimi podminkami"
+  }
+}

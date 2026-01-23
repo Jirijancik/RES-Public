@@ -1,0 +1,36 @@
+{
+  "navigation": {
+    "home": "Domov",
+    "contact": "Kontakt",
+    "gdpr": "Ochrana osobnich udaju",
+    "cookies": "Cookies"
+  },
+  "footer": {
+    "navigation": "Navigace",
+    "legal": "Pravni informace",
+    "socialMedia": "Socialni site",
+    "cookieSettings": "Nastaveni cookies",
+    "copyright": "Autorska prava",
+    "allRightsReserved": "Vsechna prava vyhrazena.",
+    "scrollToTop": "Nahoru",
+    "createdBy": "Vytvoril"
+  },
+  "buttons": {
+    "submit": "Odeslat",
+    "cancel": "Zrusit",
+    "save": "Ulozit",
+    "delete": "Smazat",
+    "edit": "Upravit",
+    "back": "Zpet",
+    "next": "Dalsi",
+    "previous": "Predchozi",
+    "close": "Zavrit",
+    "open": "Otevrit",
+    "loading": "Nacitam..."
+  },
+  "language": {
+    "cs": "Cestina",
+    "en": "Anglictina",
+    "switchTo": "Prepnout jazyk"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "labels": {
+    "email": "Email",
+    "name": "Name",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone",
+    "message": "Message",
+    "subject": "Subject",
+    "company": "Company",
+    "website": "Website",
+    "address": "Address",
+    "city": "City",
+    "country": "Country",
+    "postalCode": "Postal Code",
+    "password": "Password",
+    "confirmPassword": "Confirm Password"
+  },
+  "placeholders": {
+    "email": "your@email.com",
+    "name": "Your name",
+    "phone": "+1 234 567 890",
+    "message": "Write your message...",
+    "subject": "What would you like to discuss?"
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": {
+      "invalid": "Invalid email format"
+    },
+    "minLength": "Minimum {{min}} characters",
+    "maxLength": "Maximum {{max}} characters",
+    "phone": {
+      "invalid": "Invalid phone number"
+    }
+  },
+  "consent": {
+    "gdpr": "I agree to the processing of personal data",
+    "newsletter": "I want to receive newsletter",
+    "terms": "I agree to the terms and conditions"
+  }
+}
