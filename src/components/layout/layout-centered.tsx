@@ -17,22 +17,22 @@ export function LayoutCentered({ children }: { children: React.ReactNode }) {
     <div
       className={clsx(
         "[--navbar-height:--spacing(16)]",
-        "relative isolate flex min-h-dvh w-full flex-col justify-between *:shrink-0 *:grow-0 *:data-[slot=main]:shrink *:data-[slot=main]:grow"
+        "relative isolate flex min-h-dvh w-full pt-12 flex-col justify-between *:shrink-0 *:grow-0 *:data-[slot=main]:shrink *:data-[slot=main]:grow"
       )}
     >
       {/* Skip to content - A11y */}
       <SkipToContent href={`#${contentId}`}>Skip to content</SkipToContent>
 
       {/* Banner */}
-      <Banner isDismissable={true}>
+      {/* <Banner isDismissable={true}>
         <BannerTitle>Lorem ipsum dolor sit amet</BannerTitle>
         <BannerDivider />
         <BannerDescription>consectetur adipisicing elit ipsa laudantium</BannerDescription>
         <BannerLink href="/">Call to action</BannerLink>
-      </Banner>
+      </Banner> */}
 
       {/* Header */}
-      <Header navigation={navLinksArray} />
+      {/* <Header navigation={navLinksArray} /> */}
 
       {/* Main content */}
       <main id={contentId} data-slot="main" className="min-w-0">
@@ -40,7 +40,7 @@ export function LayoutCentered({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Footer */}
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }

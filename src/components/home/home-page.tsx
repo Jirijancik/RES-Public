@@ -12,7 +12,6 @@ export function HomePage() {
   const { search, data: results, error, isPending, isError, reset } = useAresSearchWithCache();
 
   function handleSearch(params: AresSearchParams) {
-    console.log("🚀 ~ handleSearch ~ params:", params)
     search(params);
   }
 
