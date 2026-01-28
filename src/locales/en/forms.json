@@ -1,4 +1,49 @@
 {
+  "ares": {
+    "title": "RES Search",
+    "description": "Search subjects in the Register of Economic Subjects",
+    "labels": {
+      "ico": "Company ID (ICO)",
+      "businessName": "Business Name",
+      "region": "Region",
+      "district": "District"
+    },
+    "placeholders": {
+      "ico": "12345678",
+      "businessName": "Company name",
+      "region": "Select a region",
+      "district": "Select a district",
+      "searchRegion": "Search region...",
+      "searchDistrict": "Search district...",
+      "noResults": "No results found"
+    },
+    "validation": {
+      "ico": {
+        "format": "Company ID must contain exactly 8 digits",
+        "digits": "Company ID must contain only digits"
+      },
+      "atLeastOne": "Please fill in at least Company ID or Business Name"
+    },
+    "buttons": {
+      "search": "Search",
+      "searching": "Searching...",
+      "clear": "Clear"
+    },
+    "results": {
+      "title": "Search Results",
+      "found": "Found {{count}} subjects",
+      "noResults": "No results found",
+      "error": "Search error"
+    },
+    "fields": {
+      "ico": "Company ID",
+      "businessName": "Business Name",
+      "legalForm": "Legal Form",
+      "headquarters": "Headquarters",
+      "foundationDate": "Foundation Date",
+      "vatId": "VAT ID"
+    }
+  },
   "labels": {
     "email": "Email",
     "name": "Name",

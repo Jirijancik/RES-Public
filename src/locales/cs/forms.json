@@ -1,4 +1,49 @@
 {
+  "ares": {
+    "title": "Vyhledavani v RES",
+    "description": "Vyhledejte subjekty v Registru ekonomickych subjektu",
+    "labels": {
+      "ico": "ICO",
+      "businessName": "Obchodni jmeno/nazev",
+      "region": "Kraj",
+      "district": "Okres"
+    },
+    "placeholders": {
+      "ico": "12345678",
+      "businessName": "Nazev spolecnosti",
+      "region": "Vyberte kraj",
+      "district": "Vyberte okres",
+      "searchRegion": "Hledat kraj...",
+      "searchDistrict": "Hledat okres...",
+      "noResults": "Zadne vysledky"
+    },
+    "validation": {
+      "ico": {
+        "format": "ICO musi obsahovat presne 8 cislic",
+        "digits": "ICO musi obsahovat pouze cislice"
+      },
+      "atLeastOne": "Vyplnte alespon ICO nebo obchodni jmeno"
+    },
+    "buttons": {
+      "search": "Vyhledat",
+      "searching": "Vyhledavam...",
+      "clear": "Vymazat"
+    },
+    "results": {
+      "title": "Vysledky vyhledavani",
+      "found": "Nalezeno {{count}} subjektu",
+      "noResults": "Zadne vysledky nenalezeny",
+      "error": "Chyba pri vyhledavani"
+    },
+    "fields": {
+      "ico": "ICO",
+      "businessName": "Obchodni jmeno",
+      "legalForm": "Pravni forma",
+      "headquarters": "Sidlo",
+      "foundationDate": "Datum vzniku",
+      "vatId": "DIC"
+    }
+  },
   "labels": {
     "email": "E-mail",
     "name": "Jmeno",

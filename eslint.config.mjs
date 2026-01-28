@@ -42,7 +42,7 @@ const eslintConfig = defineConfig([
       // ===========================================
       "prefer-const": "warn",
       "no-console": ["warn", { allow: ["warn", "error"] }],
-      "func-style": ["warn", "declaration", { allowArrowFunctions: false }],
+      "func-style": ["warn", "declaration", { allowArrowFunctions: true }],
       quotes: ["warn", "double", { avoidEscape: true, allowTemplateLiterals: true }],
 
       // Object/Array style
