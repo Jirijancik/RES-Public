@@ -169,7 +169,13 @@ export const aresParser = {
       ico: params.ico,
       obchodniJmeno: params.businessName,
       pravniForma: params.legalForm,
-      sidlo: params.sidlo,
+      sidlo: params.location
+        ? {
+            kodObce: params.location.municipalityCode,
+            kodKraje: params.location.regionCode,
+            kodOkresu: params.location.districtCode,
+          }
+        : undefined,
     };
   },
 };

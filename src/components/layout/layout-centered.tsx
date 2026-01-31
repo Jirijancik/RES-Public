@@ -1,11 +1,6 @@
 "use client";
 
-import clsx from "clsx";
-import { Banner, BannerDescription, BannerDivider, BannerLink, BannerTitle } from "./banner";
 import { Link, type LinkProps } from "@/components/ui/link";
-import { Footer } from "./footer";
-import { Header } from "./header";
-import { navLinksArray } from "@/config/nav-links";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "../ui/button";
 
@@ -15,7 +10,7 @@ export function LayoutCentered({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={clsx(
+      className={cn(
         "[--navbar-height:--spacing(16)]",
         "relative isolate flex min-h-dvh w-full pt-12 flex-col justify-between *:shrink-0 *:grow-0 *:data-[slot=main]:shrink *:data-[slot=main]:grow"
       )}

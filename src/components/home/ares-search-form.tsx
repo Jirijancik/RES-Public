@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -21,31 +22,35 @@ interface AresSearchFormProps {
 export function AresSearchForm({ onSearch, isPending, onReset }: AresSearchFormProps) {
   const { t } = useTranslation("forms");
 
-  const aresSearchFormSchema = z
-    .object({
-      ico: z
-        .string()
-        .refine((val) => !val || /^\d*$/.test(val), {
-          message: t("ares.validation.ico.digits"),
+  const aresSearchFormSchema = useMemo(
+    () =>
+      z
+        .object({
+          ico: z
+            .string()
+            .refine((val) => !val || /^\d*$/.test(val), {
+              message: t("ares.validation.ico.digits"),
+            })
+            .refine((val) => !val || val.length === 0 || val.length === 8, {
+              message: t("ares.validation.ico.format"),
+            }),
+          businessName: z.string(),
+          region: z.string(),
+          district: z.string(),
         })
-        .refine((val) => !val || val.length === 0 || val.length === 8, {
-          message: t("ares.validation.ico.format"),
-        }),
-      businessName: z.string(),
-      region: z.string(),
-      district: z.string(),
-    })
-    .refine(
-      (data) => {
-        const hasIco = data.ico && data.ico.length === 8;
-        const hasBusinessName = data.businessName && data.businessName.trim().length > 0;
-        return hasIco || hasBusinessName;
-      },
-      {
-        message: t("ares.validation.atLeastOne"),
-        path: ["ico"],
-      }
-    );
+        .refine(
+          (data) => {
+            const hasIco = data.ico && data.ico.length === 8;
+            const hasBusinessName = data.businessName && data.businessName.trim().length > 0;
+            return hasIco || hasBusinessName;
+          },
+          {
+            message: t("ares.validation.atLeastOne"),
+            path: ["ico"],
+          }
+        ),
+    [t]
+  );
 
   type AresSearchFormValues = z.infer<typeof aresSearchFormSchema>;
 
@@ -70,19 +75,19 @@ export function AresSearchForm({ onSearch, isPending, onReset }: AresSearchFormP
         params.businessName = value.businessName.trim();
       }
 
-      // Build sidlo params if region or district is selected
+      // Build location params if region or district is selected
       if (value.region || value.district) {
-        const sidlo: AresSearchParams["sidlo"] = {};
+        const location: AresSearchParams["location"] = {};
 
         if (value.region) {
-          sidlo.kodKraje = Number(value.region);
+          location.regionCode = Number(value.region);
         }
 
         if (value.district) {
-          sidlo.kodOkresu = Number(value.district);
+          location.districtCode = Number(value.district);
         }
 
-        params.sidlo = sidlo;
+        params.location = location;
       }
 
       onSearch(params);

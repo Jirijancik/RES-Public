@@ -284,12 +284,12 @@ export interface AresSearchResult {
 }
 
 /**
- * Headquarters filter for search
+ * Location filter for search
  */
-export interface AresSearchSidlo {
-  kodObce?: number;
-  kodKraje?: number;
-  kodOkresu?: number;
+export interface AresSearchLocation {
+  municipalityCode?: number;
+  regionCode?: number;
+  districtCode?: number;
 }
 
 /**
@@ -302,7 +302,7 @@ export interface AresSearchParams {
   ico?: string[];
   businessName?: string;
   legalForm?: string[];
-  sidlo?: AresSearchSidlo;
+  location?: AresSearchLocation;
 }
 
 

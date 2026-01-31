@@ -42,20 +42,20 @@ function formatAddress(headquarters?: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-function formatDate(date?: Date): string | null {
+function formatDate(date: Date | undefined, locale: string): string | null {
   if (!date) return null;
-  return new Intl.DateTimeFormat("cs-CZ").format(date);
+  return new Intl.DateTimeFormat(locale).format(date);
 }
 
 export function AresResultCard({ subject }: AresResultCardProps) {
-  const { t } = useTranslation("forms");
+  const { t, i18n } = useTranslation("forms");
 
   const primaryRecord = subject.records.find((r) => r.isPrimaryRecord) ?? subject.records[0];
 
   if (!primaryRecord) return null;
 
   const address = formatAddress(primaryRecord.headquarters);
-  const foundationDate = formatDate(primaryRecord.foundationDate);
+  const foundationDate = formatDate(primaryRecord.foundationDate, i18n.language);
 
   return (
     <Link href={`/subject/${subject.icoId}`} className="block no-underline">

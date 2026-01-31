@@ -42,4 +42,4 @@ export { aresEndpoints, AresApiError } from "./ares.endpoints";
 
 // React Query Hooks
 export { useAresSubjectByIco, useAresSubjectByIcoSuspense } from "./ares.queries";
-export { useAresSearch, useAresSearchWithCache } from "./ares.mutations";
+export { useAresSearch, useAresSearchMutation } from "./ares.mutations";

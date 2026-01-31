@@ -5,21 +5,10 @@ import { useTranslation } from "react-i18next";
 import { Combobox } from "@/components/ui/combobox";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { REGION_CODES } from "@/lib/ares";
+import type { StringFieldApi } from "./types";
 
 interface RegionSelectProps {
-  field: {
-    name: string;
-    state: {
-      value: string;
-      meta: {
-        isTouched: boolean;
-        isValid: boolean;
-        errors: Array<{ message?: string } | undefined>;
-      };
-    };
-    handleChange: (value: string) => void;
-    handleBlur: () => void;
-  };
+  field: StringFieldApi;
   onRegionChange?: (regionCode: string) => void;
 }
 

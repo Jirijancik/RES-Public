@@ -29,10 +29,9 @@ export function useAresSearch(options?: SearchMutationOptions) {
 }
 
 /**
- * Helper hook that combines search with caching as a query
+ * Convenience wrapper around useAresSearch that exposes a simplified API
  */
-export function useAresSearchWithCache(options?: SearchMutationOptions) {
-  console.log("🚀 ~ useAresSearchWithCache ~ options:", options)
+export function useAresSearchMutation(options?: SearchMutationOptions) {
   const mutation = useAresSearch(options);
 
   return {
