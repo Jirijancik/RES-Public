@@ -2,6 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Link } from "@/components/ui/link";
 import type { AresEconomicSubject } from "@/lib/ares";
 
 interface AresResultCardProps {
@@ -57,36 +58,38 @@ export function AresResultCard({ subject }: AresResultCardProps) {
   const foundationDate = formatDate(primaryRecord.foundationDate);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{primaryRecord.businessName}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">{t("ares.fields.ico")}</dt>
-          <dd className="font-mono">{primaryRecord.ico}</dd>
+    <Link href={`/subject/${subject.icoId}`} className="block no-underline">
+      <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+        <CardHeader>
+          <CardTitle>{primaryRecord.businessName}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-muted-foreground">{t("ares.fields.ico")}</dt>
+            <dd className="font-mono">{primaryRecord.ico}</dd>
 
-          {primaryRecord.legalForm ? <>
-              <dt className="text-muted-foreground">{t("ares.fields.legalForm")}</dt>
-              <dd>{primaryRecord.legalForm}</dd>
-            </> : null}
+            {primaryRecord.legalForm ? <>
+                <dt className="text-muted-foreground">{t("ares.fields.legalForm")}</dt>
+                <dd>{primaryRecord.legalForm}</dd>
+              </> : null}
 
-          {address ? <>
-              <dt className="text-muted-foreground">{t("ares.fields.headquarters")}</dt>
-              <dd>{address}</dd>
-            </> : null}
+            {address ? <>
+                <dt className="text-muted-foreground">{t("ares.fields.headquarters")}</dt>
+                <dd>{address}</dd>
+              </> : null}
 
-          {foundationDate ? <>
-              <dt className="text-muted-foreground">{t("ares.fields.foundationDate")}</dt>
-              <dd>{foundationDate}</dd>
-            </> : null}
+            {foundationDate ? <>
+                <dt className="text-muted-foreground">{t("ares.fields.foundationDate")}</dt>
+                <dd>{foundationDate}</dd>
+              </> : null}
 
-          {primaryRecord.vatId ? <>
-              <dt className="text-muted-foreground">{t("ares.fields.vatId")}</dt>
-              <dd className="font-mono">{primaryRecord.vatId}</dd>
-            </> : null}
-        </dl>
-      </CardContent>
-    </Card>
+            {primaryRecord.vatId ? <>
+                <dt className="text-muted-foreground">{t("ares.fields.vatId")}</dt>
+                <dd className="font-mono">{primaryRecord.vatId}</dd>
+              </> : null}
+          </dl>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

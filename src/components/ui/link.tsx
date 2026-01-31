@@ -8,5 +8,5 @@ export type LinkProps<T extends string = string> = Omit<NextLinkProps, "href"> &
 };
 
 export function Link<T extends string = string>(props: LinkProps<T>) {
-  return <NextLink {...props} />;
+  return <NextLink {...(props as NextLinkProps)} />;
 }

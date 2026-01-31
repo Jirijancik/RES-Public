@@ -41,7 +41,29 @@
       "legalForm": "Legal Form",
       "headquarters": "Headquarters",
       "foundationDate": "Foundation Date",
-      "vatId": "VAT ID"
+      "vatId": "VAT ID",
+      "terminationDate": "Termination Date",
+      "updateDate": "Last Updated",
+      "slovakVatId": "Slovak VAT ID",
+      "taxOffice": "Tax Office",
+      "region": "Region",
+      "district": "District",
+      "country": "Country",
+      "address": "Address",
+      "postalCode": "Postal Code"
+    },
+    "detail": {
+      "backToSearch": "Back to search",
+      "basicInfo": "Basic Information",
+      "headquarters": "Headquarters",
+      "deliveryAddress": "Delivery Address",
+      "naceActivities": "NACE Activities",
+      "registrations": "Registration Statuses",
+      "active": "Active",
+      "terminated": "Terminated",
+      "loading": "Loading subject details...",
+      "error": "Failed to load subject details",
+      "mapUnavailable": "Map unavailable for this address"
     }
   },
   "labels": {

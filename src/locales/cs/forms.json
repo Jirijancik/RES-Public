@@ -41,7 +41,29 @@
       "legalForm": "Pravni forma",
       "headquarters": "Sidlo",
       "foundationDate": "Datum vzniku",
-      "vatId": "DIC"
+      "vatId": "DIC",
+      "terminationDate": "Datum zaniku",
+      "updateDate": "Posledni aktualizace",
+      "slovakVatId": "SK DIC",
+      "taxOffice": "Financni urad",
+      "region": "Kraj",
+      "district": "Okres",
+      "country": "Zeme",
+      "address": "Adresa",
+      "postalCode": "PSC"
+    },
+    "detail": {
+      "backToSearch": "Zpet na vyhledavani",
+      "basicInfo": "Zakladni informace",
+      "headquarters": "Sidlo",
+      "deliveryAddress": "Dorucovaci adresa",
+      "naceActivities": "Cinnosti NACE",
+      "registrations": "Stavy registraci",
+      "active": "Aktivni",
+      "terminated": "Zanikly",
+      "loading": "Nacitam udaje o subjektu...",
+      "error": "Nepodarilo se nacist udaje o subjektu",
+      "mapUnavailable": "Mapa pro tuto adresu neni dostupna"
     }
   },
   "labels": {
