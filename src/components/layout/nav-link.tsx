@@ -36,9 +36,7 @@ export function NavLink({
       rel={isExternal ? rel || "noopener noreferrer" : rel}
     >
       {children}
-      {isExternal && showExternalIcon && (
-        <ArrowUpRightIcon aria-hidden="true" className="ml-1 inline size-[1em] opacity-50" />
-      )}
+      {isExternal && showExternalIcon ? <ArrowUpRightIcon aria-hidden="true" className="ml-1 inline size-[1em] opacity-50" /> : null}
     </Link>
   );
 }

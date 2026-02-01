@@ -54,11 +54,9 @@ export function Banner({
       )}
     >
       <p className="text-sm leading-6">{children}</p>
-      {isDismissable && (
-        <div className="flex flex-1 justify-end">
+      {isDismissable ? <div className="flex flex-1 justify-end">
           <BannerCloseButton onClick={() => handleOpenChange(false)} />
-        </div>
-      )}
+        </div> : null}
     </div>
   );
 }

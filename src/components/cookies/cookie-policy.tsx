@@ -166,16 +166,12 @@ export function CookiePolicy({
 
   return (
     <div {...props}>
-      {effectiveDate && (
-        <p className="text-sm opacity-60">
+      {effectiveDate ? <p className="text-sm opacity-60">
           {t.effectiveFrom} {effectiveDate}
-        </p>
-      )}
-      {lastUpdated && (
-        <p className="text-sm opacity-60">
+        </p> : null}
+      {lastUpdated ? <p className="text-sm opacity-60">
           {t.lastUpdated} {lastUpdated}
-        </p>
-      )}
+        </p> : null}
 
       <section>
         <h2>{t.introTitle}</h2>
@@ -235,19 +231,17 @@ export function CookiePolicy({
             {t.manageButton}
           </CookieSettingsTrigger>
         </div>
-        {cookieManagementInfo && <div className="mt-4">{cookieManagementInfo}</div>}
+        {cookieManagementInfo ? <div className="mt-4">{cookieManagementInfo}</div> : null}
       </section>
 
       <section>
         <h2>{t.contactTitle}</h2>
         <p>
           {t.contactText} <strong>{contact.email}</strong>
-          {contact.phone && (
-            <>
+          {contact.phone ? <>
               {" "}
               {t.contactPhone} <strong>{contact.phone}</strong>
-            </>
-          )}
+            </> : null}
           .
         </p>
       </section>

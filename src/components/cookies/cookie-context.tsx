@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 
 const COOKIE_NAME = "cookie_consent";
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year in seconds

@@ -3,8 +3,11 @@
 import dynamic from "next/dynamic";
 import { useTranslation } from "react-i18next";
 import { ArrowLeftIcon, AlertCircleIcon, ChevronDownIcon, CopyIcon, CheckIcon } from "lucide-react";
-import { useAresSubjectByIco } from "@/lib/ares";
-import type { AresBusinessRecord, AresRegistrationStatuses } from "@/lib/ares";
+import {
+  useAresSubjectByIco,
+  type AresBusinessRecord,
+  type AresRegistrationStatuses,
+} from "@/lib/ares";
 import { Container } from "@/components/ui/container";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,12 +17,13 @@ import { Separator } from "@/components/ui/separator";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Link } from "@/components/ui/link";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { formatAddress, formatDate, REGISTRATION_LABELS } from "./utils";
 
 const SubjectMap = dynamic(() => import("./subject-map").then((mod) => mod.SubjectMap), {
   ssr: false,
   loading: () => (
-    <div className="bg-muted flex h-[250px] items-center justify-center rounded-lg">
+    <div className="bg-muted flex h-62.5 items-center justify-center rounded-lg">
       <Spinner className="size-5" />
     </div>
   ),
@@ -102,15 +106,21 @@ export function SubjectDetail({ ico }: SubjectDetailProps) {
   const address = formatAddress(record.headquarters);
   const isTerminated = Boolean(record.terminationDate);
   const activeRegistrations = record.registrationStatuses
-    ? (Object.entries(record.registrationStatuses) as [keyof AresRegistrationStatuses, string | undefined][]).filter(
-        ([, value]) => value != null
-      )
+    ? (
+        Object.entries(record.registrationStatuses) as [
+          keyof AresRegistrationStatuses,
+          string | undefined,
+        ][]
+      ).filter(([, value]) => value != null)
     : [];
 
   return (
     <Container size="xl">
       <div className="space-y-6 py-8">
-        <BackLink label={t("ares.detail.backToSearch")} />
+        <div className="flex items-center justify-between">
+          <BackLink label={t("ares.detail.backToSearch")} />
+          <LanguageSwitcher />
+        </div>
 
         {/* Header */}
         <div className="space-y-2">
@@ -140,13 +150,13 @@ export function SubjectDetail({ ico }: SubjectDetailProps) {
             <BasicInfoSection record={record} t={t} />
 
             {/* NACE Activities */}
-            {record.naceActivities && record.naceActivities.length > 0 && (
+            {record.naceActivities && record.naceActivities.length > 0 ? (
               <Collapsible>
                 <Card>
                   <CardHeader>
                     <CollapsibleTrigger className="flex w-full items-center justify-between">
                       <CardTitle>{t("ares.detail.naceActivities")}</CardTitle>
-                      <ChevronDownIcon className="text-muted-foreground size-5 transition-transform [[data-state=open]_&]:rotate-180" />
+                      <ChevronDownIcon className="text-muted-foreground size-5 transition-transform in-data-[state=open]:rotate-180" />
                     </CollapsibleTrigger>
                   </CardHeader>
                   <CollapsibleContent>
@@ -162,7 +172,7 @@ export function SubjectDetail({ ico }: SubjectDetailProps) {
                   </CollapsibleContent>
                 </Card>
               </Collapsible>
-            )}
+            ) : null}
 
             {/* Registration Statuses */}
             {activeRegistrations.length > 0 && (
@@ -171,7 +181,7 @@ export function SubjectDetail({ ico }: SubjectDetailProps) {
                   <CardHeader>
                     <CollapsibleTrigger className="flex w-full items-center justify-between">
                       <CardTitle>{t("ares.detail.registrations")}</CardTitle>
-                      <ChevronDownIcon className="text-muted-foreground size-5 transition-transform [[data-state=open]_&]:rotate-180" />
+                      <ChevronDownIcon className="text-muted-foreground size-5 transition-transform in-data-[state=open]:rotate-180" />
                     </CollapsibleTrigger>
                   </CardHeader>
                   <CollapsibleContent>
@@ -192,7 +202,7 @@ export function SubjectDetail({ ico }: SubjectDetailProps) {
 
           {/* Right column: map + address */}
           <div className="space-y-6">
-            {record.headquarters && (
+            {record.headquarters ? (
               <div className="lg:sticky lg:top-6">
                 <Card>
                   <CardHeader>
@@ -204,26 +214,32 @@ export function SubjectDetail({ ico }: SubjectDetailProps) {
                   </CardContent>
                 </Card>
               </div>
-            )}
+            ) : null}
 
             {/* Delivery Address */}
             {record.deliveryAddress &&
-              (record.deliveryAddress.addressLine1 ||
-                record.deliveryAddress.addressLine2 ||
-                record.deliveryAddress.addressLine3) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t("ares.detail.deliveryAddress")}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-1 text-sm">
-                      {record.deliveryAddress.addressLine1 && <p>{record.deliveryAddress.addressLine1}</p>}
-                      {record.deliveryAddress.addressLine2 && <p>{record.deliveryAddress.addressLine2}</p>}
-                      {record.deliveryAddress.addressLine3 && <p>{record.deliveryAddress.addressLine3}</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+            (record.deliveryAddress.addressLine1 ||
+              record.deliveryAddress.addressLine2 ||
+              record.deliveryAddress.addressLine3) ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("ares.detail.deliveryAddress")}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1 text-sm">
+                    {record.deliveryAddress.addressLine1 ? (
+                      <p>{record.deliveryAddress.addressLine1}</p>
+                    ) : null}
+                    {record.deliveryAddress.addressLine2 ? (
+                      <p>{record.deliveryAddress.addressLine2}</p>
+                    ) : null}
+                    {record.deliveryAddress.addressLine3 ? (
+                      <p>{record.deliveryAddress.addressLine3}</p>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
         </div>
       </div>
@@ -242,7 +258,13 @@ function BackLink({ label }: { label: string }) {
   );
 }
 
-function BasicInfoSection({ record, t }: { record: AresBusinessRecord; t: (key: string) => string }) {
+function BasicInfoSection({
+  record,
+  t,
+}: {
+  record: AresBusinessRecord;
+  t: (key: string) => string;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -254,37 +276,43 @@ function BasicInfoSection({ record, t }: { record: AresBusinessRecord; t: (key: 
             <CopyableValue value={record.ico} />
           </DetailRow>
 
-          {record.vatId && (
+          {record.vatId ? (
             <DetailRow label={t("ares.fields.vatId")}>
               <CopyableValue value={record.vatId} />
             </DetailRow>
-          )}
+          ) : null}
 
-          {record.slovakVatId && (
+          {record.slovakVatId ? (
             <DetailRow label={t("ares.fields.slovakVatId")}>
               <CopyableValue value={record.slovakVatId} />
             </DetailRow>
-          )}
+          ) : null}
 
-          {record.legalForm && (
+          {record.legalForm ? (
             <DetailRow label={t("ares.fields.legalForm")}>{record.legalForm}</DetailRow>
-          )}
+          ) : null}
 
-          {record.taxOffice && (
+          {record.taxOffice ? (
             <DetailRow label={t("ares.fields.taxOffice")}>{record.taxOffice}</DetailRow>
-          )}
+          ) : null}
 
-          {record.foundationDate && (
-            <DetailRow label={t("ares.fields.foundationDate")}>{formatDate(record.foundationDate)}</DetailRow>
-          )}
+          {record.foundationDate ? (
+            <DetailRow label={t("ares.fields.foundationDate")}>
+              {formatDate(record.foundationDate)}
+            </DetailRow>
+          ) : null}
 
-          {record.terminationDate && (
-            <DetailRow label={t("ares.fields.terminationDate")}>{formatDate(record.terminationDate)}</DetailRow>
-          )}
+          {record.terminationDate ? (
+            <DetailRow label={t("ares.fields.terminationDate")}>
+              {formatDate(record.terminationDate)}
+            </DetailRow>
+          ) : null}
 
-          {record.updateDate && (
-            <DetailRow label={t("ares.fields.updateDate")}>{formatDate(record.updateDate)}</DetailRow>
-          )}
+          {record.updateDate ? (
+            <DetailRow label={t("ares.fields.updateDate")}>
+              {formatDate(record.updateDate)}
+            </DetailRow>
+          ) : null}
         </dl>
       </CardContent>
     </Card>
@@ -304,15 +332,23 @@ function HeadquartersDetails({
 
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-      {address && <DetailRow label={t("ares.fields.address")}>{address}</DetailRow>}
+      {address ? <DetailRow label={t("ares.fields.address")}>{address}</DetailRow> : null}
 
-      {hq.postalCode && <DetailRow label={t("ares.fields.postalCode")}>{hq.postalCode}</DetailRow>}
+      {hq.postalCode ? (
+        <DetailRow label={t("ares.fields.postalCode")}>{hq.postalCode}</DetailRow>
+      ) : null}
 
-      {hq.regionName && <DetailRow label={t("ares.fields.region")}>{hq.regionName}</DetailRow>}
+      {hq.regionName ? (
+        <DetailRow label={t("ares.fields.region")}>{hq.regionName}</DetailRow>
+      ) : null}
 
-      {hq.districtName && <DetailRow label={t("ares.fields.district")}>{hq.districtName}</DetailRow>}
+      {hq.districtName ? (
+        <DetailRow label={t("ares.fields.district")}>{hq.districtName}</DetailRow>
+      ) : null}
 
-      {hq.countryName && <DetailRow label={t("ares.fields.country")}>{hq.countryName}</DetailRow>}
+      {hq.countryName ? (
+        <DetailRow label={t("ares.fields.country")}>{hq.countryName}</DetailRow>
+      ) : null}
     </dl>
   );
 }

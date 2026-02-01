@@ -113,7 +113,7 @@ export function SubjectMap({ headquarters }: SubjectMapProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-muted flex h-[250px] items-center justify-center rounded-lg">
+      <div className="bg-muted flex h-62.5 items-center justify-center rounded-lg">
         <Spinner className="size-5" />
       </div>
     );
@@ -121,12 +121,12 @@ export function SubjectMap({ headquarters }: SubjectMapProps) {
 
   if (isError || !coords) {
     return (
-      <div className="bg-muted text-muted-foreground flex h-[150px] flex-col items-center justify-center gap-2 rounded-lg text-sm">
+      <div className="bg-muted text-muted-foreground flex h-37.5 flex-col items-center justify-center gap-2 rounded-lg text-sm">
         <MapPinIcon className="size-5 opacity-50" />
         <span>{t("ares.detail.mapUnavailable")}</span>
       </div>
     );
   }
 
-  return <div ref={mapRef} className="z-0 h-[250px] overflow-hidden rounded-lg" />;
+  return <div ref={mapRef} className="z-0 h-62.5 overflow-hidden rounded-lg" />;
 }

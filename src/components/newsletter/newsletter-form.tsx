@@ -110,14 +110,14 @@ export function NewsletterForm({ className, ...props }: React.ComponentProps<"di
                       aria-invalid={isInvalid}
                       placeholder="your-email@example.com"
                     />
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                    {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                   </Field>
                 );
               }}
             </form.Field>
 
             <Button type="submit" disabled={isSubmitting} className="hidden @sm:inline-flex">
-              {isSubmitting && <Spinner />}
+              {isSubmitting ? <Spinner /> : null}
               {isSubmitting ? "Subscribing..." : "Subscribe"}
             </Button>
           </div>
@@ -145,19 +145,18 @@ export function NewsletterForm({ className, ...props }: React.ComponentProps<"di
                     onError={() => field.handleChange("")}
                     onExpire={() => field.handleChange("")}
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                 </Field>
               );
             }}
           </form.Field>
 
           <Button type="submit" disabled={isSubmitting} className="w-full @sm:hidden">
-            {isSubmitting && <Spinner />}
+            {isSubmitting ? <Spinner /> : null}
             {isSubmitting ? "Subscribing..." : "Subscribe"}
           </Button>
 
-          {submitStatus.type && (
-            <Alert variant={submitStatus.type === "error" ? "destructive" : "default"}>
+          {submitStatus.type ? <Alert variant={submitStatus.type === "error" ? "destructive" : "default"}>
               {submitStatus.type === "success" ? (
                 <CheckCircleIcon aria-hidden="true" className="size-4" />
               ) : (
@@ -169,8 +168,7 @@ export function NewsletterForm({ className, ...props }: React.ComponentProps<"di
                   : "Subscription failed"}
               </AlertTitle>
               <AlertDescription>{submitStatus.message}</AlertDescription>
-            </Alert>
-          )}
+            </Alert> : null}
         </FieldGroup>
       </form>
     </div>

@@ -87,7 +87,7 @@ export function FeaturesBlock(props: React.ComponentProps<"div">) {
           return (
             <div key={index} className="bg-muted rounded-xl p-6 sm:p-8">
               <div className="mb-4 flex items-center gap-3">
-                <Button size="icon-lg" variant={"outline"}>
+                <Button size="icon-lg" variant="outline">
                   <div>
                     <Icon className="size-5" aria-hidden="true" />
                   </div>
@@ -99,8 +99,7 @@ export function FeaturesBlock(props: React.ComponentProps<"div">) {
                 {item.description}
               </p>
 
-              {item.items && (
-                <ul className="space-y-3">
+              {item.items ? <ul className="space-y-3">
                   {item.items.map((subItem, itemIndex) => (
                     <li key={itemIndex} className="flex items-center gap-3">
                       <div className="bg-muted-foreground/20 flex size-4 items-center justify-center rounded-full">
@@ -109,8 +108,7 @@ export function FeaturesBlock(props: React.ComponentProps<"div">) {
                       <span className="text-foreground text-sm">{subItem}</span>
                     </li>
                   ))}
-                </ul>
-              )}
+                </ul> : null}
             </div>
           );
         })}

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { verifyTurnstileToken, getClientIP } from "@/lib/turnstile";
 import { formatEmailTimestamp } from "@/lib/utils";

@@ -12,7 +12,7 @@ function makeQueryClient() {
         retry: (failureCount, error) => {
           // Don't retry on 4xx errors
           if (error instanceof Error && "status" in error) {
-            const status = (error as { status: number }).status;
+            const {status} = (error as { status: number });
             if (status >= 400 && status < 500) {
               return false;
             }

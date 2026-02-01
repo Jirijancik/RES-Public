@@ -144,7 +144,7 @@ export function Header({ navigation }: { navigation: NavigationItem[] }) {
   return (
     <FloatingBar
       asChild
-      position={"sticky"}
+      position="sticky"
       autoHide={true}
       className={clsx(
         // Base styles for the navbar

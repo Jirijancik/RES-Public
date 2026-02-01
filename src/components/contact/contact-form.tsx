@@ -148,7 +148,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                       aria-invalid={isInvalid}
                       placeholder="Your name"
                     />
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                    {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                   </Field>
                 );
               }}
@@ -169,7 +169,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                       aria-invalid={isInvalid}
                       placeholder="Your surname"
                     />
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                    {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                   </Field>
                 );
               }}
@@ -193,7 +193,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                     placeholder="your@email.com"
                   />
                   <FieldDescription>We will send our response to this address.</FieldDescription>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                 </Field>
               );
             }}
@@ -218,7 +218,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                   <FieldDescription>
                     Phone number for potential clarification of your inquiry.
                   </FieldDescription>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                 </Field>
               );
             }}
@@ -241,7 +241,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                     rows={4}
                   />
                   <FieldDescription>Describe how we can help you.</FieldDescription>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                 </Field>
               );
             }}
@@ -269,7 +269,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                         *
                       </span>
                     </FieldLabel>
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                    {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                   </div>
                 </Field>
               );
@@ -287,19 +287,18 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                     onError={() => field.handleChange("")}
                     onExpire={() => field.handleChange("")}
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid ? <FieldError errors={field.state.meta.errors} /> : null}
                 </Field>
               );
             }}
           </form.Field>
 
           <Button type="submit" disabled={isSubmitting} size="lg" className="w-full">
-            {isSubmitting && <Spinner />}
+            {isSubmitting ? <Spinner /> : null}
             {isSubmitting ? "Sending..." : "Submit"}
           </Button>
 
-          {submitStatus.type && (
-            <Alert variant={submitStatus.type === "error" ? "destructive" : "default"}>
+          {submitStatus.type ? <Alert variant={submitStatus.type === "error" ? "destructive" : "default"}>
               {submitStatus.type === "success" ? (
                 <CheckCircleIcon aria-hidden="true" className="size-4" />
               ) : (
@@ -311,8 +310,7 @@ export function ContactForm({ className, ...props }: React.ComponentProps<"div">
                   : "Submission failed"}
               </AlertTitle>
               <AlertDescription>{submitStatus.message}</AlertDescription>
-            </Alert>
-          )}
+            </Alert> : null}
         </FieldGroup>
       </form>
     </div>

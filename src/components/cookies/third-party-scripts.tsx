@@ -9,8 +9,8 @@ export async function ThirdPartyScripts() {
 
   return (
     <>
-      {consent.analytics && gaId && <GoogleAnalytics gaId={gaId} />}
-      {consent.analytics && gtmId && <GoogleTagManager gtmId={gtmId} />}
+      {consent.analytics && gaId ? <GoogleAnalytics gaId={gaId} /> : null}
+      {consent.analytics && gtmId ? <GoogleTagManager gtmId={gtmId} /> : null}
     </>
   );
 }

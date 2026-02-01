@@ -279,20 +279,16 @@ export function GdprPolicy({
 
   return (
     <div {...props}>
-      {effectiveDate && (
-        <p className="text-sm opacity-60">
+      {effectiveDate ? <p className="text-sm opacity-60">
           {t.effectiveFrom} {effectiveDate}
-        </p>
-      )}
+        </p> : null}
 
       <p>
         {t.principles} <strong>{company.name}</strong>
-        {company.id && (
-          <>
+        {company.id ? <>
             {" "}
             ({t.companyId} {company.id})
-          </>
-        )}{" "}
+          </> : null}{" "}
         {t.headquartered} <strong>{company.address}</strong> {t.controller}
       </p>
 
@@ -327,33 +323,27 @@ export function GdprPolicy({
         </p>
       </section>
 
-      {hasThirdParties && (
-        <section>
+      {hasThirdParties ? <section>
           <h2>{t.thirdPartiesTitle}</h2>
           <p>{t.thirdPartiesDesc}</p>
           <ul>
             {actualThirdParties.map((party, idx) => (
               <li key={idx}>
                 <strong>{party.name}</strong> - {t.thirdPartyService} {party.service}
-                {party.country && (
-                  <span>
+                {party.country ? <span>
                     {", "} {t.thirdPartyCountry} {party.country}
-                  </span>
-                )}
+                  </span> : null}
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        </section> : null}
 
-      {additionalInfo && (
-        <section>
+      {additionalInfo ? <section>
           <h2>
             {additionalInfoSection}. {t.additionalInfoTitle}
           </h2>
           <div>{additionalInfo}</div>
-        </section>
-      )}
+        </section> : null}
 
       <section>
         <h2>
@@ -379,12 +369,10 @@ export function GdprPolicy({
         </h2>
         <p>
           {t.contactDesc} <strong>{contact.email}</strong>
-          {contact.phone && (
-            <>
+          {contact.phone ? <>
               {" "}
               {t.contactPhone} <strong>{contact.phone}</strong>
-            </>
-          )}
+            </> : null}
           .
         </p>
         <p>
