@@ -28,9 +28,9 @@ INSTALLED_APPS = [
     "corsheaders",
     # Your apps (like your src/lib/ domains)
     "core",
-    # "ares",        # Uncommented by Chunk 3
-    # "justice",     # Uncommented by Chunk 5
-    # "contacts",    # Uncommented by Chunk 4
+    "ares",
+    "justice",
+    "contacts",
 ]
 
 MIDDLEWARE = [
