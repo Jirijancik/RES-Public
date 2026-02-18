@@ -1,16 +1,5 @@
 // Types
 export type {
-  // API Types (Czech)
-  AresApiSidlo,
-  AresApiStatistickeUdaje,
-  AresApiAdresaDorucovaci,
-  AresApiSeznamRegistraci,
-  AresApiDalsiUdaj,
-  AresApiEkonomickySubjekt,
-  AresApiSearchResponse,
-  AresApiSearchRequest,
-  AresApiGetByIcoResponse,
-  // Entity Types (English)
   AresHeadquarters,
   AresStatisticalData,
   AresDeliveryAddress,
@@ -33,9 +22,6 @@ export {
 
 // Query Keys
 export { aresKeys } from "./ares.keys";
-
-// Parser
-export { aresParser } from "./ares.parser";
 
 // Endpoints
 export { aresEndpoints, AresApiError } from "./ares.endpoints";

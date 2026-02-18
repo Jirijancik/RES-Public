@@ -1,9 +1,6 @@
-import axios, { type AxiosError, type AxiosInstance } from "axios";
-import { ARES_BASE_URL, ARES_REQUEST_TIMEOUT } from "./ares.constants";
-import { aresParser } from "./ares.parser";
+import type { AxiosError } from "axios";
+import { apiClient } from "@/lib/api/client";
 import type {
-  AresApiSearchResponse,
-  AresApiGetByIcoResponse,
   AresSearchParams,
   AresSearchResult,
   AresEconomicSubject,
@@ -24,66 +21,51 @@ export class AresApiError extends Error {
 }
 
 /**
- * Create Axios instance configured for ARES API
+ * Map axios errors to AresApiError
  */
-function createAresClient(): AxiosInstance {
-  const client = axios.create({
-    baseURL: ARES_BASE_URL,
-    timeout: ARES_REQUEST_TIMEOUT,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-  });
+function handleApiError(error: AxiosError): never {
+  if (error.response) {
+    const { status } = error.response;
+    let message = "ARES API error";
 
-  client.interceptors.response.use(
-    (response) => response,
-    (error: AxiosError) => {
-      if (error.response) {
-        const {status} = error.response;
-        let message = "ARES API error";
-
-        if (status === 400) {
-          message = "Invalid request parameters";
-        } else if (status === 404) {
-          message = "Economic subject not found";
-        } else if (status === 429) {
-          message = "Too many requests. Please try again later.";
-        } else if (status >= 500) {
-          message = "ARES service is temporarily unavailable";
-        }
-
-        throw new AresApiError(message, status, error);
-      } else if (error.request) {
-        throw new AresApiError("Unable to connect to ARES service", undefined, error);
-      } else {
-        throw new AresApiError("Failed to make request to ARES", undefined, error);
-      }
+    if (status === 400) {
+      message = "Invalid request parameters";
+    } else if (status === 404) {
+      message = "Economic subject not found";
+    } else if (status === 429) {
+      message = "Too many requests. Please try again later.";
+    } else if (status >= 500) {
+      message = "ARES service is temporarily unavailable";
     }
-  );
 
-  return client;
+    throw new AresApiError(message, status, error);
+  } else if (error.request) {
+    throw new AresApiError("Unable to connect to ARES service", undefined, error);
+  } else {
+    throw new AresApiError("Failed to make request to ARES", undefined, error);
+  }
 }
 
-const aresClient = createAresClient();
-
 /**
- * ARES API Endpoints
+ * ARES API Endpoints — calls Django backend which proxies ARES
  */
 export const aresEndpoints = {
   /**
    * Search for economic subjects
-   * POST /vyhledat
+   * POST /ares/search/
    */
   async search(params: AresSearchParams): Promise<AresSearchResult> {
-    const requestBody = aresParser.toSearchRequest(params);
-    const response = await aresClient.post<AresApiSearchResponse>("/vyhledat", requestBody);
-    return aresParser.toSearchResult(response.data);
+    try {
+      const response = await apiClient.post<AresSearchResult>("/ares/search/", params);
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error as AxiosError);
+    }
   },
 
   /**
    * Get economic subject by ICO (Company ID)
-   * GET /{ico}
+   * GET /ares/subjects/{ico}/
    */
   async getByIco(ico: string): Promise<AresEconomicSubject> {
     const normalizedIco = ico.padStart(8, "0");
@@ -91,7 +73,11 @@ export const aresEndpoints = {
       throw new AresApiError("Invalid ICO format. ICO must be 8 digits.");
     }
 
-    const response = await aresClient.get<AresApiGetByIcoResponse>(`/${normalizedIco}`);
-    return aresParser.toEconomicSubject(response.data);
+    try {
+      const response = await apiClient.get<AresEconomicSubject>(`/ares/subjects/${normalizedIco}/`);
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error as AxiosError);
+    }
   },
 };

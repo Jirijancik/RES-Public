@@ -47,7 +47,7 @@ export function NewsletterForm({ className, ...props }: React.ComponentProps<"di
       setSubmitStatus({ type: null, message: "" });
 
       try {
-        const response = await fetch("/api/newsletter", {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"}/contacts/newsletter/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
