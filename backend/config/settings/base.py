@@ -82,7 +82,7 @@ CSRF_TRUSTED_ORIGINS = [
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    # "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",  # Uncommented by Chunk 2
+    "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
 }
