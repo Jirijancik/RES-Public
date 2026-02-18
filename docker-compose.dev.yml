@@ -1,0 +1,24 @@
+# Development overrides. Use both files together:
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  django:
+    build:
+      target: builder               # Use builder stage (has gcc for installing new packages)
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app              # Bind mount: edit code, see changes instantly
+      - /app/__pycache__            # Don't sync pycache to host
+    ports:
+      - "8000:8000"                 # Expose Django directly (skip Nginx)
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+      - DJANGO_DEBUG=True
+
+  db:
+    ports:
+      - "5432:5432"                 # Expose DB for tools like pgAdmin, DBeaver
+
+  redis:
+    ports:
+      - "6379:6379"                 # Expose Redis for redis-cli debugging

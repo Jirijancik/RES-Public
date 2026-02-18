@@ -48,14 +48,14 @@ A Django REST API backend to replace the business logic currently living in the 
 
 ### What Moves Where
 
-| What | Currently | Moves To |
-|------|-----------|----------|
-| ARES API calls (search + detail) | Browser calls ares.gov.cz directly | Django proxies + caches in Redis |
-| Czech-to-English data parsing | `src/lib/ares/ares.parser.ts` | `backend/ares/parser.py` |
-| Contact form (email sending) | `src/app/api/contact-form/route.ts` | `backend/contacts/` Django app |
-| Newsletter subscription | `src/app/api/newsletter/route.ts` | `backend/contacts/` Django app |
-| Turnstile CAPTCHA verification | `src/lib/turnstile.ts` | `backend/core/services/turnstile.py` (also stays in Next.js) |
-| Rate limiting | None (ARES has 14 req/min limit) | Django throttling + Redis cache |
+| What                             | Currently                             | Moves To                                                       |
+| -------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
+| ARES API calls (search + detail) | Browser calls ares.gov.cz directly    | Django proxies + caches in Redis                               |
+| Czech-to-English data parsing    | `src/lib/ares/ares.parser.ts`       | `backend/ares/parser.py`                                     |
+| Contact form (email sending)     | `src/app/api/contact-form/route.ts` | `backend/contacts/` Django app                               |
+| Newsletter subscription          | `src/app/api/newsletter/route.ts`   | `backend/contacts/` Django app                               |
+| Turnstile CAPTCHA verification   | `src/lib/turnstile.ts`              | `backend/core/services/turnstile.py` (also stays in Next.js) |
+| Rate limiting                    | None (ARES has 14 req/min limit)      | Django throttling + Redis cache                                |
 
 ### What Stays in Next.js
 
@@ -97,6 +97,7 @@ HTTP Request
 ```
 
 **3. Separation of concerns.**
+
 - **Views** handle HTTP only (like Next.js API route handlers, but thinner)
 - **Serializers** validate input + shape output (like Zod schemas)
 - **Services** contain business logic (like what your React Query `onSuccess` callbacks do)
@@ -119,14 +120,14 @@ HTTP Request
 
 If you know npm, you already understand Docker's concepts:
 
-| npm Concept | Docker Equivalent | What It Does |
-|---|---|---|
-| `package.json` | `Dockerfile` | Declares how to build your environment |
-| `node_modules/` | Docker **image** | The installed result (read-only snapshot) |
-| `npm install` | `docker build` | Creates the environment from the declaration |
-| `npx next dev` | `docker run` | Runs a **container** (live instance of an image) |
-| `.npmrc` | `.dockerignore` | Tells the tool what to skip |
-| `npm workspaces` | `docker-compose.yml` | Orchestrates multiple services together |
+| npm Concept        | Docker Equivalent      | What It Does                                          |
+| ------------------ | ---------------------- | ----------------------------------------------------- |
+| `package.json`   | `Dockerfile`         | Declares how to build your environment                |
+| `node_modules/`  | Docker**image**  | The installed result (read-only snapshot)             |
+| `npm install`    | `docker build`       | Creates the environment from the declaration          |
+| `npx next dev`   | `docker run`         | Runs a**container** (live instance of an image) |
+| `.npmrc`         | `.dockerignore`      | Tells the tool what to skip                           |
+| `npm workspaces` | `docker-compose.yml` | Orchestrates multiple services together               |
 
 **Key mental model:** An **image** is a frozen snapshot of your app + all dependencies. A **container** is a running copy of that image. You can run many containers from one image.
 
@@ -167,17 +168,13 @@ res/                           # Your existing Next.js project root
 #### `backend/Dockerfile`
 
 ```dockerfile
-# --- Stage 1: Base image with system dependencies ---
-# python:3.12-slim is ~150MB (vs python:3.12 at ~900MB)
-FROM python:3.12-slim AS base
+# --- Stage 1: Builder image (compiles C extensions, then gets thrown away) ---
+# This stage has gcc and dev headers -- heavy tools needed only during install.
+# Think of it like devDependencies: needed to build, but not to run.
+FROM python:3.12-slim AS builder
 
-# PYTHONDONTWRITEBYTECODE: Don't create .pyc files (smaller image)
-# PYTHONUNBUFFERED: Print output immediately (important for Docker logs)
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# Install system packages needed by psycopg (PostgreSQL driver)
-# and pdfplumber (for Justice PDF parsing)
+# Install system packages needed to COMPILE psycopg (PostgreSQL driver).
+# gcc + libpq-dev are ~200MB. We only need them here, not in the final image.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libpq-dev \
@@ -186,49 +183,76 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# --- Stage 2: Install Python dependencies (cached layer) ---
-# This layer only rebuilds when requirements files change.
-# Your code changes daily, but dependencies change rarely.
-FROM base AS dependencies
-
+# Copy requirements FIRST (before your code).
+# Docker caches each instruction. If requirements haven't changed,
+# this entire stage is skipped on rebuild. Your code changes daily,
+# but dependencies change rarely -- so this saves minutes per build.
 COPY requirements/base.txt requirements/base.txt
 COPY requirements/prod.txt requirements/prod.txt
 RUN pip install --no-cache-dir -r requirements/prod.txt
 
-# --- Stage 3: Final production image ---
-FROM base AS production
+# --- Stage 2: Final production image (clean, minimal, no build tools) ---
+# Start fresh from python:3.12-slim. This image has NO gcc, NO dev headers.
+# We only copy the compiled packages from the builder stage.
+FROM python:3.12-slim AS production
+
+# PYTHONDONTWRITEBYTECODE: Don't create .pyc files (smaller image)
+# PYTHONUNBUFFERED: Print output immediately (important for Docker logs)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# libpq5 is the PostgreSQL CLIENT library (runtime only, ~2MB).
+# libpq-dev (the dev headers, ~20MB) stays behind in the builder stage.
+# curl is needed for the Docker health check.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libpq5 \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
 
 # Create non-root user (security: never run as root in production)
 RUN addgroup --system django && \
     adduser --system --ingroup django django
 
-# Copy installed packages from the dependencies stage
-COPY --from=dependencies /usr/local/lib/python3.12/site-packages \
+# Copy installed packages from the builder stage.
+# This brings the compiled wheels (psycopg, etc.) without gcc.
+COPY --from=builder /usr/local/lib/python3.12/site-packages \
      /usr/local/lib/python3.12/site-packages
-COPY --from=dependencies /usr/local/bin /usr/local/bin
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY . .
 
-# Collect static files (Django admin CSS/JS) at build time
-RUN python manage.py collectstatic --noinput 2>/dev/null || true
+# Collect static files (Django admin CSS/JS) at build time.
+# These get placed into STATIC_ROOT so Nginx can serve them.
+# NOTE: Do NOT suppress errors here. If collectstatic fails, you want
+# to know during build -- not discover a broken admin panel in production.
+RUN DJANGO_SETTINGS_MODULE=config.settings.production \
+    DJANGO_SECRET_KEY=build-placeholder \
+    python manage.py collectstatic --noinput
 
 USER django
 EXPOSE 8000
 
-# Health check: Docker restarts the container if this fails
+# Health check: Docker marks the container as unhealthy (and can restart it)
+# if this fails 3 times in a row. Using curl is faster than spinning up a
+# Python interpreter every 30 seconds.
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')" || exit 1
+    CMD curl -f http://localhost:8000/api/health/ || exit 1
 
 CMD ["gunicorn", "config.wsgi:application", \
      "--bind", "0.0.0.0:8000", \
-     "--workers", "3", \
+     "--workers", "5", \
      "--timeout", "120"]
 ```
 
-**Why multi-stage builds?** Stage 2 installs gcc and compiles C extensions. Stage 3 copies only the compiled results. The final image doesn't include gcc, saving ~200MB.
+**Why 5 workers?** The rule of thumb is `2 * CPU_cores + 1`. On a 2-core VPS, that's 5 workers. Each sync worker handles one request at a time, so 5 workers means 5 concurrent requests. Each worker uses ~50-80MB of RAM (5 workers ≈ 250-400MB). See the [Gunicorn Workers &amp; Concurrency](#gunicorn-workers--concurrency) section for details and our future async migration plan.
 
-**Why layer caching matters:** Docker caches each instruction. `COPY requirements/...` before `COPY .` means changing your Python code doesn't re-install all dependencies. This cuts build time from minutes to seconds.
+**Why multi-stage builds?** The builder stage has gcc (~200MB) for compiling C extensions like `psycopg`. The production stage starts from a clean `python:3.12-slim` and only copies the compiled results. The final image never has gcc, dev headers, or build tools -- keeping it small (~200MB) and secure (less attack surface).
+
+**Why `COPY requirements/...` comes before `COPY . .`:** Docker caches each instruction. If your requirements files haven't changed, Docker reuses the cached layer and skips `pip install` entirely. Only your code (which changes daily) gets re-copied. This cuts rebuild time from minutes to seconds.
 
 #### `backend/.dockerignore`
 
@@ -266,10 +290,18 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: production            # Use the production stage
+    # env_file loads variables into the container's environment.
+    # IMPORTANT: This does NOT copy .env into the image (it's in .dockerignore).
+    # Docker Compose reads .env at runtime and injects the values as env vars.
     env_file:
       - ./backend/.env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
+    volumes:
+      # Shared volume: Django's collectstatic writes CSS/JS here during build,
+      # and Nginx reads from the same volume to serve them. Without this,
+      # Nginx's /static/ location would point to an empty directory.
+      - static_files:/app/staticfiles
     depends_on:
       db:
         condition: service_healthy  # Wait for PostgreSQL to be ready
@@ -296,18 +328,22 @@ services:
       - backend-net
 
   # --- Redis Cache ---
+  # We use Redis ONLY as a cache (not for sessions, queues, or primary data).
+  # That means we DON'T need disk persistence (appendonly). If Redis restarts,
+  # the cache is empty -- and that's fine, because every cached value can be
+  # re-fetched from the external APIs. This saves disk I/O and keeps Redis fast.
   redis:
     image: redis:7-alpine
     command: >
       redis-server
-      --appendonly yes
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
-    # appendonly: persist data to disk (survives restarts)
-    # maxmemory: cap at 256MB RAM
-    # allkeys-lru: when full, evict least recently used keys
-    volumes:
-      - redis_data:/data
+      --save ""
+    # --maxmemory 256mb: cap RAM usage at 256MB
+    # --maxmemory-policy allkeys-lru: when full, evict the least recently used key
+    # --save "": disable RDB snapshots (no disk persistence needed for a pure cache)
+    # NOTE: If you later add Redis-backed sessions or Celery task queues,
+    # re-enable persistence with --appendonly yes and add a redis_data volume.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -323,6 +359,9 @@ services:
       - "80:80"                     # The only port exposed to the host
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Same shared volume: Nginx reads the static files that Django wrote.
+      # The :ro flag means Nginx can only READ, not write.
+      - static_files:/var/www/static:ro
     depends_on:
       - django
     networks:
@@ -331,8 +370,8 @@ services:
 # Named volumes: Docker manages these directories. Data persists across restarts.
 # Delete with: docker compose down -v
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_data:        # PostgreSQL data -- must persist
+  static_files:         # Django collectstatic output, shared with Nginx
 
 # Internal network: containers communicate by service name (e.g., django -> db:5432)
 networks:
@@ -349,7 +388,7 @@ networks:
 services:
   django:
     build:
-      target: base                  # Skip production optimizations
+      target: builder               # Use builder stage (has gcc for installing new packages)
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app              # Bind mount: edit code, see changes instantly
@@ -404,7 +443,9 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # Static files (collected by Django's collectstatic)
+    # Static files (collected by Django's collectstatic).
+    # Nginx reads these from the shared "static_files" Docker volume
+    # (mapped to /var/www/static in the Nginx container, /app/staticfiles in Django).
     location /static/ {
         alias /var/www/static/;
         expires 30d;
@@ -602,6 +643,38 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 
+# Templates: Required even for an API-only project because Django Admin
+# uses templates to render its pages. Without this, visiting /admin/ crashes.
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],                  # No custom templates needed
+        "APP_DIRS": True,            # Find templates inside installed apps (admin, DRF)
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+# Static files: collectstatic gathers CSS/JS from all apps (mainly Django Admin)
+# into STATIC_ROOT, which Nginx serves. See the shared volume in docker-compose.yml.
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# CSRF: Django uses CSRF protection for any session-based requests (like the admin).
+# Since our API uses DRF with AllowAny + no session auth, CSRF doesn't apply to
+# API endpoints. But if you access /admin/ from a different origin (e.g., your
+# Next.js domain), you need to whitelist it here or Django blocks the POST.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in env("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(",")
+]
+
 # DRF configuration (like setting up axios defaults)
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
@@ -785,6 +858,132 @@ class TurnstileVerificationMixin:
             raise ValidationError({"turnstileToken": result.get("error", "Verification failed.")})
 ```
 
+#### `core/throttles.py` -- Rate Limiting
+
+One of the main reasons for this backend is respecting the ARES API's 14 requests/minute rate limit. Without rate limiting, if 20 users search simultaneously (all cache misses), Django would fire 20 requests to ARES and get rate-limited.
+
+We need **two types** of rate limiting:
+
+1. **Per-user throttle** (DRF built-in): limits how many requests a single user/IP can make to OUR API. Prevents abuse.
+2. **Global outbound throttle** (custom): limits how many requests Django sends to ARES in total, across ALL users. This is the critical one for staying under ARES's 14 req/min limit.
+
+```python
+"""
+Rate limiting for API endpoints.
+
+Two concerns:
+1. Per-user inbound rate limits (how fast can one user hit our API?)
+2. Global outbound rate limits (how fast can we hit external APIs like ARES?)
+
+DRF has built-in throttles for #1. For #2, we use Redis as a shared counter
+so all Gunicorn workers respect the same global limit.
+"""
+import time
+
+from django.core.cache import cache
+from rest_framework.throttling import SimpleRateThrottle, AnonRateThrottle
+
+
+# --- Per-user inbound throttles (DRF built-in pattern) ---
+# These limit how fast a single IP can call our endpoints.
+# Like express-rate-limit in Node.js.
+
+class AresSearchThrottle(AnonRateThrottle):
+    """Limit search requests per user IP."""
+    rate = "30/minute"  # One user can search 30 times per minute
+    scope = "ares_search"
+
+
+class AresDetailThrottle(AnonRateThrottle):
+    """Limit detail lookups per user IP."""
+    rate = "60/minute"
+    scope = "ares_detail"
+
+
+class ContactFormThrottle(AnonRateThrottle):
+    """Prevent contact form spam."""
+    rate = "5/hour"
+    scope = "contact_form"
+
+
+# --- Global outbound throttle (custom) ---
+# This is the critical one. ARES allows 14 requests per minute TOTAL.
+# Even if 100 users search simultaneously, we must not exceed this.
+# Redis is the shared counter so all Gunicorn workers see the same count.
+
+class GlobalOutboundThrottle:
+    """
+    Limits outbound requests to an external API across ALL users and workers.
+    Uses a Redis sliding window counter.
+
+    Usage in a service:
+        throttle = GlobalOutboundThrottle(key="ares", max_requests=12, window=60)
+
+        if not throttle.allow():
+            raise ExternalAPIError("ARES rate limit reached. Try again shortly.", status_code=429)
+        response = self.client.search(...)
+
+    Why max_requests=12 instead of 14?
+    Leave a 2-request buffer. If our counter drifts slightly (clock skew
+    between workers), we don't want to hit ARES's hard limit and get blocked.
+    """
+
+    def __init__(self, key: str, max_requests: int, window: int):
+        self.cache_key = f"throttle:outbound:{key}"
+        self.max_requests = max_requests
+        self.window = window  # seconds
+
+    def allow(self) -> bool:
+        """Check if we can make another outbound request. Thread-safe via Redis INCR."""
+        # Redis INCR is atomic -- even with multiple Gunicorn workers calling
+        # this simultaneously, the count is always accurate.
+        current = cache.get(self.cache_key)
+
+        if current is None:
+            # First request in this window. Set counter to 1 with TTL.
+            cache.set(self.cache_key, 1, self.window)
+            return True
+
+        if current >= self.max_requests:
+            return False
+
+        # Increment atomically. django-redis maps .incr() to Redis INCR.
+        cache.incr(self.cache_key)
+        return True
+
+    def wait_time(self) -> int | None:
+        """Seconds until the window resets. Useful for Retry-After headers."""
+        ttl = cache.ttl(self.cache_key)
+        return ttl if ttl and ttl > 0 else None
+```
+
+Then wire the throttles into the ARES views:
+
+```python
+# In ares/views.py:
+class AresSearchView(APIView):
+    throttle_classes = [AresSearchThrottle]  # Per-user: 30/min
+    # ...
+
+# In ares/services.py (outbound calls):
+class AresService:
+    def __init__(self, ...):
+        self.outbound_throttle = GlobalOutboundThrottle(
+            key="ares", max_requests=12, window=60
+        )
+
+    def search(self, params):
+        # ... cache check ...
+        if not self.outbound_throttle.allow():
+            raise ExternalAPIError(
+                "ARES rate limit reached. Please try again in a minute.",
+                status_code=429,
+                service_name="ares",
+            )
+        raw = self.client.search(request_body)
+        # ...
+```
+
 ### Example 1: ARES App (REST API Data Source)
 
 #### `ares/client.py`
@@ -796,6 +995,15 @@ Sends raw Czech-format requests, receives raw Czech-format responses.
 Does NOT parse or transform data -- that's the parser's job.
 
 Equivalent to: the axios instance + HTTP calls in src/lib/ares/ares.endpoints.ts
+
+IMPORTANT: This client uses requests.Session() for HTTP connection pooling.
+A Session reuses the underlying TCP connection across multiple requests to
+the same host (like keep-alive in axios). This avoids the overhead of a
+new TCP handshake + TLS negotiation on every API call.
+
+Because of this, you should NOT create a new AresClient per request.
+Instead, create one instance at module level and reuse it. See the
+module-level singleton at the bottom of this file.
 """
 import requests
 from core.exceptions import ExternalAPIError
@@ -853,6 +1061,13 @@ class AresClient:
             status_code=code,
             service_name="ares",
         )
+
+
+# Module-level singleton: created once when Python imports this module.
+# All views share this one instance (and its connection pool).
+# This is safe because Gunicorn forks AFTER importing modules,
+# and requests.Session is thread-safe for read operations.
+ares_client = AresClient()
 ```
 
 #### `ares/parser.py`
@@ -967,14 +1182,16 @@ Equivalent to: what useAresSearchMutation onSuccess does, but server-side.
 import re
 from core.services.cache import CacheService
 from core.exceptions import ExternalAPIError
-from .client import AresClient
+from .client import AresClient, ares_client  # Import the singleton
 from .parser import parse_search_result, parse_economic_subject, to_search_request
 from .constants import ARES_DETAIL_CACHE_TTL, ARES_SEARCH_CACHE_TTL
 
 
 class AresService:
     def __init__(self, client: AresClient | None = None):
-        self.client = client or AresClient()
+        # Default: use the module-level singleton (shares connection pool).
+        # In tests: inject a mock client to avoid real HTTP calls.
+        self.client = client or ares_client
         self.cache = CacheService(prefix="ares", default_ttl=ARES_SEARCH_CACHE_TTL)
 
     def search(self, params: dict) -> dict:
@@ -1296,6 +1513,21 @@ class JusticeCSVParser:
 """
 Justice business logic + caching layer.
 Same pattern as AresService but for a file-parsing data source.
+
+CACHING STRATEGY NOTE:
+Parsed PDFs can be large (text + tables from a 50-page financial filing).
+Storing all of them in Redis (capped at 256MB) would fill the cache quickly
+and evict ARES data that's more frequently accessed.
+
+Strategy:
+- Cache ONLY the lightweight metadata (document type, table count, source URL)
+  in Redis. This makes repeated "what kind of document is this?" lookups instant.
+- Return the full parsed content (text + tables) directly in the API response
+  without caching it. PDFs from justice.cz are static (filed documents never
+  change), so re-parsing on a cache miss is acceptable.
+- If you find re-parsing is too slow for large PDFs, consider storing parsed
+  results in PostgreSQL (a JSONField on the CourtRecord model) instead of Redis.
+  PostgreSQL uses disk, so it won't compete with the Redis memory budget.
 """
 from core.services.cache import CacheService
 from .client import JusticeClient
@@ -1314,7 +1546,12 @@ class JusticeService:
         self.cache = CacheService(prefix="justice", default_ttl=SEARCH_CACHE_TTL)
 
     def get_document(self, ico: str, document_id: str) -> dict:
-        """Download, parse, and cache a PDF document."""
+        """Download, parse, and return a PDF document.
+
+        Caches only lightweight metadata in Redis (not the full text/tables).
+        See module docstring for rationale.
+        """
+        # Check if we have cached metadata (avoids re-downloading the PDF)
         cached = self.cache.get("doc", ico, document_id)
         if cached is not None:
             return cached
@@ -1342,7 +1579,24 @@ class JusticeService:
             "sourceUrl": source_url,
         }
 
-        self.cache.set(result, "doc", ico, document_id, ttl=DOCUMENT_CACHE_TTL)
+        # Cache only the metadata (small) -- not the full text/tables.
+        # This way, Redis tells us "we already parsed this document" so we can
+        # skip the download, but it doesn't eat 5MB of cache per PDF.
+        metadata = {
+            "ico": ico,
+            "documentId": document_id,
+            "documentType": doc_type,
+            "tableCount": len(tables),
+            "sourceUrl": source_url,
+        }
+        self.cache.set(metadata, "doc:meta", ico, document_id, ttl=DOCUMENT_CACHE_TTL)
+
+        # For the full result, consider persisting to PostgreSQL:
+        # CourtRecord.objects.update_or_create(
+        #     ico=ico, document_id=document_id,
+        #     defaults={"parsed_data": result, "document_type": doc_type},
+        # )
+
         return result
 
     def import_companies_csv(self, dataset_url: str) -> list[dict]:
@@ -1392,14 +1646,14 @@ class NewsletterSubscriber(models.Model):
 
 ### API Endpoints Summary
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/ares/search/` | Search companies |
-| GET | `/api/v1/ares/subjects/{ico}/` | Company detail |
-| GET | `/api/v1/justice/search/?query=...` | Search court registry |
-| GET | `/api/v1/justice/documents/?ico=...&document_id=...` | Get parsed PDF |
-| POST | `/api/v1/contacts/contact-form/` | Submit contact form |
-| POST | `/api/v1/contacts/newsletter/` | Newsletter subscribe |
+| Method | Endpoint                                               | Description           |
+| ------ | ------------------------------------------------------ | --------------------- |
+| POST   | `/api/v1/ares/search/`                               | Search companies      |
+| GET    | `/api/v1/ares/subjects/{ico}/`                       | Company detail        |
+| GET    | `/api/v1/justice/search/?query=...`                  | Search court registry |
+| GET    | `/api/v1/justice/documents/?ico=...&document_id=...` | Get parsed PDF        |
+| POST   | `/api/v1/contacts/contact-form/`                     | Submit contact form   |
+| POST   | `/api/v1/contacts/newsletter/`                       | Newsletter subscribe  |
 
 ---
 
@@ -1408,6 +1662,7 @@ class NewsletterSubscriber(models.Model):
 ### What Redis Is
 
 Redis is a **shared in-memory key-value store**. Think of it as a giant JavaScript `Map()` that:
+
 - Lives on a server (not in a browser)
 - Is shared across all users and all Django worker processes
 - Supports TTL (Time To Live) -- keys auto-delete after expiration
@@ -1418,14 +1673,14 @@ Redis is a **shared in-memory key-value store**. Think of it as a giant JavaScri
 
 Your current caching is React Query -- client-side, per-browser. Here's what Redis gives you:
 
-| | React Query (current) | Redis (backend) |
-|---|---|---|
-| **Shared across users** | No -- each browser has its own cache | Yes -- one cache for everyone |
-| **ARES rate limit** | Each user burns requests independently | One fetch serves all users |
-| **Cache survives page refresh** | No | Yes |
-| **Popular companies** | Fetched thousands of times/day | Fetched once per TTL |
-| **ARES downtime** | App breaks | Stale cache still serves |
-| **Cost** | Free | Free (open source, ~5MB RAM usage) |
+|                                       | React Query (current)                  | Redis (backend)                    |
+| ------------------------------------- | -------------------------------------- | ---------------------------------- |
+| **Shared across users**         | No -- each browser has its own cache   | Yes -- one cache for everyone      |
+| **ARES rate limit**             | Each user burns requests independently | One fetch serves all users         |
+| **Cache survives page refresh** | No                                     | Yes                                |
+| **Popular companies**           | Fetched thousands of times/day         | Fetched once per TTL               |
+| **ARES downtime**               | App breaks                             | Stale cache still serves           |
+| **Cost**                        | Free                                   | Free (open source, ~5MB RAM usage) |
 
 ### How It Works in Our Architecture
 
@@ -1474,13 +1729,13 @@ Examples:
 
 ### TTLs Per Data Source
 
-| Data | TTL | Why |
-|------|-----|-----|
-| ARES company detail | 1 hour | Company data changes rarely |
-| ARES search results | 15 minutes | New companies can register |
-| Justice PDF documents | 24 hours | Filed documents never change |
-| Justice CSV data | 12 hours | Open data updates daily |
-| Contact submissions | Not cached | Always persisted to DB |
+| Data                  | TTL        | Why                          |
+| --------------------- | ---------- | ---------------------------- |
+| ARES company detail   | 1 hour     | Company data changes rarely  |
+| ARES search results   | 15 minutes | New companies can register   |
+| Justice PDF documents | 24 hours   | Filed documents never change |
+| Justice CSV data      | 12 hours   | Open data updates daily      |
+| Contact submissions   | Not cached | Always persisted to DB       |
 
 ### The CacheService Class
 
@@ -1681,13 +1936,9 @@ DATABASES = {
 ### Code Organization Rules
 
 1. **Views are thin.** A view validates input, calls a service, serializes output. If your view is more than 15 lines, extract logic into `services.py`.
-
 2. **Services contain business logic.** Validation, caching, external API calls, data transformation, email sending -- all in services. Services are easy to test because they don't depend on HTTP.
-
 3. **Parsers are pure functions.** No I/O, no database, no cache. Input dict in, output dict out. Easy to test with static fixtures.
-
 4. **Clients handle HTTP only.** The client talks to external APIs and maps HTTP errors to exceptions. It does NOT parse or transform the response.
-
 5. **Serializers define the contract.** Input serializers validate request shape (like Zod). Output serializers define response shape (like TypeScript interfaces).
 
 ### What Good Django Code Looks Like
@@ -1793,6 +2044,66 @@ def test_search_returns_cached_result():
     assert mock_client.search.call_count == 1  # Still 1, not 2
 ```
 
+### Gunicorn Workers & Concurrency
+
+This is important to understand because it directly affects how many users your backend can serve simultaneously.
+
+**How Gunicorn works:** Gunicorn is a pre-fork server. It starts `N` worker processes, each running a separate copy of your Django app. Each **sync worker** handles **one request at a time**. If you have 5 workers and all 5 are waiting for ARES to respond (say, 2 seconds each), your entire backend is blocked -- a 6th user gets a timeout.
+
+```
+Gunicorn (5 sync workers)
+├── Worker 1: handling request A (waiting for ARES...) ← BLOCKED
+├── Worker 2: handling request B (waiting for ARES...) ← BLOCKED
+├── Worker 3: handling request C (waiting for ARES...) ← BLOCKED
+├── Worker 4: handling request D (waiting for ARES...) ← BLOCKED
+├── Worker 5: handling request E (waiting for ARES...) ← BLOCKED
+└── Request F arrives: ⏳ queued, waiting for a free worker
+```
+
+**The problem:** Our backend proxies external APIs (ARES, Justice). These calls are I/O-bound (we're just waiting for a response). Sync workers waste their time sitting idle while waiting for network I/O.
+
+**Our approach: 5 sync workers**
+
+The rule of thumb is `2 * CPU_cores + 1`. On a 2-core VPS, that's 5 workers. This is simple, well-understood, and handles moderate traffic fine -- which is exactly our use case (a Czech business registry tool, not a high-traffic consumer app).
+
+```dockerfile
+# In Dockerfile CMD:
+CMD ["gunicorn", "config.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "5", \
+     "--timeout", "120"]
+```
+
+Each worker uses ~50-80MB of RAM. 5 workers ≈ 250-400MB. Budget accordingly.
+
+**Why this is good enough for us:**
+
+- Redis caching means most requests never hit ARES at all (cache HIT = instant response, no worker blocking)
+- The ARES API has a 14 req/min rate limit anyway -- even if all 5 workers are blocked on ARES calls, that's only 5 concurrent external requests
+- 5 workers can handle dozens of concurrent users because most requests are cache hits (~0.1ms) and only cache misses block a worker for 1-2 seconds
+- The `requests.Session()` connection pooling in our clients keeps external calls fast
+
+**Why not more workers?** Each worker is a full Python process (~50-80MB). On a small VPS, 5 is the sweet spot between concurrency and memory. Going to 9+ workers on a 2-core machine causes CPU contention (workers fighting for CPU time) and wastes RAM.
+
+#### Future Migration: Async Workers with Uvicorn
+
+If we later see slow responses under load because all workers are blocked on external API calls, we can migrate to async workers. Django 5.1+ supports `async def` views, and with async workers a single worker can handle **many** requests concurrently -- when one request is waiting for ARES, the worker picks up other requests instead of sitting idle:
+
+```
+Gunicorn with uvicorn workers (future)
+├── Worker 1: handling requests A, B, C, D concurrently
+└── Worker 2: handling requests E, F, G, H concurrently
+```
+
+The migration would involve:
+
+1. Adding `uvicorn[standard]>=0.30` to `requirements/prod.txt`
+2. Switching the Gunicorn `--worker-class` to `uvicorn.workers.UvicornWorker`
+3. Replacing `requests` (sync HTTP client) with `httpx` (async HTTP client) in all `client.py` files
+4. Converting views and services to `async def` / `await`
+
+The service layer architecture in this guide makes this migration straightforward -- you only change the client + view layers. The parsers, serializers, constants, and tests stay the same. We will tackle this if and when performance monitoring shows sync workers are a bottleneck.
+
 ---
 
 ## 7. Next.js Integration
@@ -1801,15 +2112,15 @@ def test_search_returns_cached_result():
 
 Your Next.js app currently does everything -- UI rendering, API calls, data parsing, email sending. After migration:
 
-| Concern | Before | After |
-|---------|--------|-------|
-| UI rendering | Next.js | Next.js (unchanged) |
-| Data fetching | Browser -> ARES | Browser -> Django -> ARES |
-| Data parsing | Browser (parser.ts) | Django (parser.py) |
-| Caching | Per-browser (React Query) | Shared (Redis) |
-| Email sending | Next.js API route | Django |
-| Rate limiting | None | Django throttling |
-| Form persistence | None | PostgreSQL |
+| Concern          | Before                    | After                     |
+| ---------------- | ------------------------- | ------------------------- |
+| UI rendering     | Next.js                   | Next.js (unchanged)       |
+| Data fetching    | Browser -> ARES           | Browser -> Django -> ARES |
+| Data parsing     | Browser (parser.ts)       | Django (parser.py)        |
+| Caching          | Per-browser (React Query) | Shared (Redis)            |
+| Email sending    | Next.js API route         | Django                    |
+| Rate limiting    | None                      | Django throttling         |
+| Form persistence | None                      | PostgreSQL                |
 
 ### What Changes in the Frontend
 
@@ -1856,27 +2167,28 @@ export const aresEndpoints = {
 ```
 
 **Key insight:** The Django API returns the **exact same JSON shape** as the TypeScript entity types. This means:
+
 - `AresSearchResult`, `AresEconomicSubject`, `AresBusinessRecord` types stay unchanged
 - React Query hooks (`ares.queries.ts`, `ares.mutations.ts`) stay unchanged
 - All React components stay unchanged
 
 #### Files to Delete
 
-| File | Why |
-|------|-----|
-| `src/lib/ares/ares.parser.ts` | Parser moves to Django |
-| `src/lib/turnstile.ts` | Server-side verification moves to Django |
-| `src/app/api/contact-form/route.ts` | Replaced by Django endpoint |
-| `src/app/api/newsletter/route.ts` | Replaced by Django endpoint |
+| File                                  | Why                                      |
+| ------------------------------------- | ---------------------------------------- |
+| `src/lib/ares/ares.parser.ts`       | Parser moves to Django                   |
+| `src/lib/turnstile.ts`              | Server-side verification moves to Django |
+| `src/app/api/contact-form/route.ts` | Replaced by Django endpoint              |
+| `src/app/api/newsletter/route.ts`   | Replaced by Django endpoint              |
 
 #### Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/lib/ares/ares.endpoints.ts` | Call Django API instead of ARES directly |
-| `src/lib/ares/ares.types.ts` | Remove Czech API types (`AresApi*`). Keep English types. |
-| `src/lib/ares/index.ts` | Remove Czech type + parser exports |
-| Contact/newsletter form components | Change fetch URL to Django endpoint |
+| File                               | Change                                                     |
+| ---------------------------------- | ---------------------------------------------------------- |
+| `src/lib/ares/ares.endpoints.ts` | Call Django API instead of ARES directly                   |
+| `src/lib/ares/ares.types.ts`     | Remove Czech API types (`AresApi*`). Keep English types. |
+| `src/lib/ares/index.ts`          | Remove Czech type + parser exports                         |
+| Contact/newsletter form components | Change fetch URL to Django endpoint                        |
 
 #### New Environment Variable
 
@@ -1965,6 +2277,7 @@ Next.js Server (RSC)        ---> Django = NO CORS needed
 ```
 
 Django CORS config:
+
 ```python
 # Development: allow Next.js dev server
 CORS_ALLOWED_ORIGINS = ["http://localhost:3000"]
@@ -2007,6 +2320,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ### Dependencies
 
 #### `requirements/base.txt`
+
+Shared across all environments. These are the packages your application code imports.
+
 ```
 Django>=5.1,<5.2
 djangorestframework>=3.15
@@ -2014,13 +2330,28 @@ django-cors-headers>=4.4
 django-redis>=5.4
 redis>=5.0
 requests>=2.32
-gunicorn>=22.0
 psycopg[binary]>=3.2
 pdfplumber>=0.11
 beautifulsoup4>=4.12
 ```
 
+#### `requirements/prod.txt`
+
+Production-only. `gunicorn` is the WSGI server that runs Django in production with 5 sync workers.
+In development, you use `manage.py runserver` instead (built into Django).
+If we later migrate to async workers (see [Gunicorn Workers &amp; Concurrency](#gunicorn-workers--concurrency)), we'll add `uvicorn[standard]>=0.30` here.
+
+```
+-r base.txt
+gunicorn>=22.0
+```
+
 #### `requirements/dev.txt`
+
+Development-only tools. `pytest` for testing, `responses` for mocking HTTP calls,
+`factory-boy` for generating test data, `ruff` for linting, `debug-toolbar` for
+inspecting SQL queries and cache hits in the browser.
+
 ```
 -r base.txt
 pytest>=8.0
@@ -2036,21 +2367,27 @@ django-debug-toolbar>=4.4
 ## Implementation Phases
 
 ### Phase 1: Scaffolding
+
 Create `backend/` directory, Docker files, `config/` settings, `core/` app with shared services. Verify `docker compose up` starts Django + PostgreSQL + Redis.
 
 ### Phase 2: ARES App
+
 Port `ares.constants.ts` -> `constants.py`, `ares.endpoints.ts` -> `client.py`, `ares.parser.ts` -> `parser.py`. Implement services, serializers, views. Test with curl.
 
 ### Phase 3: Contacts App
+
 Create models, migrations, serializers, services (email), views. Set up Django Admin. Test with curl.
 
 ### Phase 4: Justice App
+
 Implement client (PDF/CSV download), parsers (pdfplumber + csv), services, views. Test with sample documents.
 
 ### Phase 5: Frontend Migration
+
 Add `NEXT_PUBLIC_API_URL` env var. Simplify `ares.endpoints.ts`. Delete parser, Czech types, Next.js API routes. Update form fetch URLs. End-to-end test.
 
 ### Verification Checklist
+
 - [ ] `docker compose up` starts all services
 - [ ] `curl POST localhost:8000/api/v1/ares/search/` returns company data
 - [ ] Same search repeated returns from Redis cache (check Django logs)
