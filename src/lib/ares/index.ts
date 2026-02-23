@@ -27,5 +27,5 @@ export { aresKeys } from "./ares.keys";
 export { aresEndpoints, AresApiError } from "./ares.endpoints";
 
 // React Query Hooks
-export { useAresSubjectByIco, useAresSubjectByIcoSuspense } from "./ares.queries";
-export { useAresSearch, useAresSearchMutation } from "./ares.mutations";
+export { useAresSubjectByIco } from "./ares.queries";
+export { useAresSearch } from "./ares.mutations";

@@ -27,21 +27,3 @@ export function useAresSearch(options?: SearchMutationOptions) {
     ...options,
   });
 }
-
-/**
- * Convenience wrapper around useAresSearch that exposes a simplified API
- */
-export function useAresSearchMutation(options?: SearchMutationOptions) {
-  const mutation = useAresSearch(options);
-
-  return {
-    search: mutation.mutate,
-    searchAsync: mutation.mutateAsync,
-    data: mutation.data,
-    error: mutation.error,
-    isPending: mutation.isPending,
-    isError: mutation.isError,
-    isSuccess: mutation.isSuccess,
-    reset: mutation.reset,
-  };
-}

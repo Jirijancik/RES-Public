@@ -1177,7 +1177,7 @@ This is the BRAIN of the ARES app. Views call this, never the client directly.
 
 Pattern: validate -> check cache -> call client -> parse -> cache -> return
 
-Equivalent to: what useAresSearchMutation onSuccess does, but server-side.
+Equivalent to: what useAresSearch onSuccess does, but server-side.
 """
 import re
 from core.services.cache import CacheService
@@ -2304,7 +2304,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 
 ```
 1. User types "Praha" in search form (Client Component)
-2. React Query useAresSearchMutation fires
+2. React Query useAresSearch fires
 3. aresEndpoints.search({ businessName: "Praha" })
 4. axios POST to http://localhost:8000/api/v1/ares/search/
 5. Nginx proxies to Django

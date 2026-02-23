@@ -1,5 +1,4 @@
 import i18n from "i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
 
 import csCommon from "./cs/common.json";
@@ -8,6 +7,9 @@ import csForms from "./cs/forms.json";
 import enCommon from "./en/common.json";
 import enErrors from "./en/errors.json";
 import enForms from "./en/forms.json";
+
+export const SUPPORTED_LANGUAGES = ["cs", "en"] as const;
+export const DEFAULT_LNG = "cs";
 
 const resources = {
   cs: {
@@ -22,20 +24,14 @@ const resources = {
   },
 };
 
-i18n
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    resources,
-    fallbackLng: "en",
-    defaultNS: "common",
-    interpolation: {
-      escapeValue: false, // React already escapes
-    },
-    detection: {
-      order: ["localStorage", "navigator"],
-      caches: ["localStorage"],
-    },
-  });
+i18n.use(initReactI18next).init({
+  resources,
+  lng: DEFAULT_LNG,
+  fallbackLng: "en",
+  defaultNS: "common",
+  interpolation: {
+    escapeValue: false, // React already escapes
+  },
+});
 
 export default i18n;

@@ -42,9 +42,11 @@ function formatAddress(headquarters?: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-function formatDate(date: Date | undefined, locale: string): string | null {
+function formatDate(date: string | Date | undefined, locale: string): string | null {
   if (!date) return null;
-  return new Intl.DateTimeFormat(locale).format(date);
+  const parsed = date instanceof Date ? date : new Date(date);
+  if (isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat(locale).format(parsed);
 }
 
 export function AresResultCard({ subject }: AresResultCardProps) {

@@ -35,6 +35,7 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
 
   function handleValueChange(value: string) {
     i18n.changeLanguage(value);
+    localStorage.setItem("i18nextLng", value);
   }
 
   useEffect(() => {
@@ -44,10 +45,6 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
     });
   }, []);
 
-  if (!mounted) {
-    return null;
-  }
-
   return (
     <RadioGroup.Root
       value={i18n.language}
@@ -55,6 +52,7 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
       aria-label={t("language.switchTo")}
       className={cn(
         "bg-background ring-border relative isolate flex h-10 rounded-full p-1 ring-1",
+        !mounted && "invisible",
         className
       )}
     >

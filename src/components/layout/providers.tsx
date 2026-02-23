@@ -4,12 +4,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 import { usePathname } from "next/navigation";
-import { createContext, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 
 import { CookieContextProvider } from "@/components/cookies/cookie-context";
 import { getQueryClient } from "@/lib/query-client";
-import i18n from "@/locales";
+import i18n, { DEFAULT_LNG, SUPPORTED_LANGUAGES } from "@/locales";
 
 export const AppContext = createContext<{ previousPathname?: string }>({});
 
@@ -29,6 +29,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const previousPathname = usePrevious(pathname);
   const queryClient = getQueryClient();
+
+  // Restore saved language preference after hydration to avoid SSR/client mismatch
+  useEffect(() => {
+    const saved = localStorage.getItem("i18nextLng");
+    if (
+      saved &&
+      saved !== DEFAULT_LNG &&
+      (SUPPORTED_LANGUAGES as readonly string[]).includes(saved)
+    ) {
+      i18n.changeLanguage(saved);
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

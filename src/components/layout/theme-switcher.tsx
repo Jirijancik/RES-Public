@@ -45,16 +45,13 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
     });
   }, []);
 
-  if (!mounted) {
-    return null;
-  }
-
   return (
     <RadioGroup.Root
       value={theme}
       onValueChange={handleValueChange}
       className={cn(
         "bg-background ring-border relative isolate flex h-10 rounded-full p-1 ring-1",
+        !mounted && "invisible",
         className
       )}
     >
