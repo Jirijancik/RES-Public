@@ -1,7 +1,25 @@
 from django.urls import path
-from .views import JusticeDocumentView, JusticeSearchView
+
+from .views import (
+    DatasetListView,
+    EntityAddressesView,
+    EntityHistoryView,
+    EntityLookupView,
+    EntityPersonsView,
+    EntitySearchView,
+    SyncStatusView,
+)
+
+app_name = "justice"
 
 urlpatterns = [
-    path("documents/", JusticeDocumentView.as_view(), name="justice-document"),
-    path("search/", JusticeSearchView.as_view(), name="justice-search"),
+    # Entity endpoints
+    path("entities/", EntityLookupView.as_view(), name="entity-lookup"),
+    path("entities/search/", EntitySearchView.as_view(), name="entity-search"),
+    path("entities/<str:ico>/history/", EntityHistoryView.as_view(), name="entity-history"),
+    path("entities/<str:ico>/persons/", EntityPersonsView.as_view(), name="entity-persons"),
+    path("entities/<str:ico>/addresses/", EntityAddressesView.as_view(), name="entity-addresses"),
+    # Dataset / sync endpoints
+    path("datasets/", DatasetListView.as_view(), name="dataset-list"),
+    path("sync/status/", SyncStatusView.as_view(), name="sync-status"),
 ]

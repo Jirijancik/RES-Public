@@ -18,6 +18,10 @@ export const navLinks = {
     name: "Home",
     href: "/",
   },
+  justice: {
+    name: "Justice",
+    href: "/justice",
+  },
   legalLinks: {
     name: "Legal links",
     items: [...legalLinksArray],

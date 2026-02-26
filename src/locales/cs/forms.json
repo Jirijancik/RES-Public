@@ -66,6 +66,69 @@
       "mapUnavailable": "Mapa pro tuto adresu neni dostupna"
     }
   },
+  "justice": {
+    "title": "Obchodni rejstrik",
+    "description": "Vyhledavani v datech obchodniho rejstriku",
+    "labels": {
+      "ico": "ICO",
+      "name": "Nazev subjektu",
+      "legalForm": "Pravni forma",
+      "court": "Soud",
+      "status": "Stav"
+    },
+    "placeholders": {
+      "ico": "12345678",
+      "name": "Nazev spolecnosti",
+      "legalForm": "Vyberte pravni formu",
+      "court": "Vyberte soud",
+      "searchLegalForm": "Hledat pravni formu...",
+      "searchCourt": "Hledat soud...",
+      "noResults": "Zadne vysledky"
+    },
+    "validation": {
+      "ico": {
+        "format": "ICO musi obsahovat presne 8 cislic",
+        "digits": "ICO musi obsahovat pouze cislice"
+      },
+      "atLeastOne": "Vyplnte alespon ICO nebo nazev"
+    },
+    "buttons": {
+      "search": "Vyhledat",
+      "searching": "Vyhledavam...",
+      "clear": "Vymazat"
+    },
+    "results": {
+      "found": "Nalezeno {{count}} subjektu",
+      "noResults": "Zadne vysledky nenalezeny",
+      "error": "Chyba pri vyhledavani"
+    },
+    "fields": {
+      "ico": "ICO",
+      "name": "Nazev",
+      "legalForm": "Pravni forma",
+      "court": "Soud",
+      "fileReference": "Spisova znacka",
+      "registrationDate": "Datum zapisu",
+      "deletionDate": "Datum vymazu",
+      "status": "Stav"
+    },
+    "detail": {
+      "backToSearch": "Zpet na vyhledavani",
+      "basicInfo": "Zakladni informace",
+      "facts": "Udaje",
+      "persons": "Osoby",
+      "addresses": "Adresy",
+      "active": "Aktivni",
+      "deleted": "Vymazany",
+      "loading": "Nacitam udaje...",
+      "error": "Nepodarilo se nacist udaje o subjektu"
+    },
+    "status": {
+      "active": "Aktivni",
+      "deleted": "Vymazany",
+      "all": "Vse"
+    }
+  },
   "labels": {
     "email": "E-mail",
     "name": "Jmeno",

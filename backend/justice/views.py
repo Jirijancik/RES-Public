@@ -1,42 +1,94 @@
-from rest_framework import status
+"""
+Justice API endpoints. Thin handlers: validate → service → serialize → respond.
+"""
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from core.exceptions import ExternalAPIError
 from .serializers import (
-    JusticeDocumentRequestSerializer,
-    JusticeDocumentResponseSerializer,
-    JusticeSearchRequestSerializer,
-    JusticeCompanyRecordSerializer,
+    AddressSerializer,
+    DatasetInfoSerializer,
+    EntityDetailSerializer,
+    EntityLookupSerializer,
+    EntitySearchSerializer,
+    HistoryEntrySerializer,
+    PersonWithFactSerializer,
+    SearchResultSerializer,
+    SyncStatusSerializer,
 )
 from .services import JusticeService
 
 
-class JusticeDocumentView(APIView):
+class EntityLookupView(APIView):
+    """GET /v1/justice/entities/?ico={ico}"""
+
     def get(self, request):
-        serializer = JusticeDocumentRequestSerializer(data=request.query_params)
+        serializer = EntityLookupSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
         service = JusticeService()
-        try:
-            result = service.get_document(
-                ico=serializer.validated_data["ico"],
-                document_id=serializer.validated_data["document_id"],
-            )
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        result = service.get_entity_by_ico(serializer.validated_data["ico"])
 
-        return Response(JusticeDocumentResponseSerializer(result).data)
+        return Response(EntityDetailSerializer(result).data)
 
 
-class JusticeSearchView(APIView):
+class EntitySearchView(APIView):
+    """GET /v1/justice/entities/search/?name=&legalForm=&location=&status="""
+
     def get(self, request):
-        serializer = JusticeSearchRequestSerializer(data=request.query_params)
+        serializer = EntitySearchSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
         service = JusticeService()
-        records = service.import_companies_csv(
-            dataset_url=serializer.validated_data["dataset_url"],
-        )
+        result = service.search_entities(serializer.validated_data)
 
-        return Response(JusticeCompanyRecordSerializer(records, many=True).data)
+        return Response(SearchResultSerializer(result).data)
+
+
+class EntityHistoryView(APIView):
+    """GET /v1/justice/entities/{ico}/history/"""
+
+    def get(self, request, ico):
+        service = JusticeService()
+        result = service.get_entity_history(ico)
+
+        return Response(HistoryEntrySerializer(result, many=True).data)
+
+
+class EntityPersonsView(APIView):
+    """GET /v1/justice/entities/{ico}/persons/"""
+
+    def get(self, request, ico):
+        service = JusticeService()
+        result = service.get_entity_persons(ico)
+
+        return Response(PersonWithFactSerializer(result, many=True).data)
+
+
+class EntityAddressesView(APIView):
+    """GET /v1/justice/entities/{ico}/addresses/"""
+
+    def get(self, request, ico):
+        service = JusticeService()
+        result = service.get_entity_addresses(ico)
+
+        return Response(AddressSerializer(result, many=True).data)
+
+
+class DatasetListView(APIView):
+    """GET /v1/justice/datasets/"""
+
+    def get(self, request):
+        service = JusticeService()
+        result = service.list_datasets()
+
+        return Response(DatasetInfoSerializer(result, many=True).data)
+
+
+class SyncStatusView(APIView):
+    """GET /v1/justice/sync/status/"""
+
+    def get(self, request):
+        service = JusticeService()
+        result = service.get_sync_status()
+
+        return Response(SyncStatusSerializer(result).data)

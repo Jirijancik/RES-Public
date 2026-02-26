@@ -10,3 +10,7 @@ ALLOWED_HOSTS = ["*"]
 
 # Allow all origins in development (Next.js dev server on :3000)
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Czech government sites (dataor.justice.cz) have certificate chains not
+# trusted by the standard Mozilla CA bundle inside Docker containers.
+JUSTICE_VERIFY_SSL = False

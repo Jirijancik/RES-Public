@@ -66,6 +66,69 @@
       "mapUnavailable": "Map unavailable for this address"
     }
   },
+  "justice": {
+    "title": "Commercial Registry",
+    "description": "Search entities in the Czech Commercial Registry",
+    "labels": {
+      "ico": "Company ID (ICO)",
+      "name": "Entity Name",
+      "legalForm": "Legal Form",
+      "court": "Court",
+      "status": "Status"
+    },
+    "placeholders": {
+      "ico": "12345678",
+      "name": "Company name",
+      "legalForm": "Select legal form",
+      "court": "Select court",
+      "searchLegalForm": "Search legal form...",
+      "searchCourt": "Search court...",
+      "noResults": "No results found"
+    },
+    "validation": {
+      "ico": {
+        "format": "Company ID must contain exactly 8 digits",
+        "digits": "Company ID must contain only digits"
+      },
+      "atLeastOne": "Please fill in at least Company ID or Entity Name"
+    },
+    "buttons": {
+      "search": "Search",
+      "searching": "Searching...",
+      "clear": "Clear"
+    },
+    "results": {
+      "found": "Found {{count}} entities",
+      "noResults": "No results found",
+      "error": "Search error"
+    },
+    "fields": {
+      "ico": "Company ID",
+      "name": "Name",
+      "legalForm": "Legal Form",
+      "court": "Court",
+      "fileReference": "File Reference",
+      "registrationDate": "Registration Date",
+      "deletionDate": "Deletion Date",
+      "status": "Status"
+    },
+    "detail": {
+      "backToSearch": "Back to search",
+      "basicInfo": "Basic Information",
+      "facts": "Registry Data",
+      "persons": "Persons",
+      "addresses": "Addresses",
+      "active": "Active",
+      "deleted": "Deleted",
+      "loading": "Loading details...",
+      "error": "Failed to load entity details"
+    },
+    "status": {
+      "active": "Active",
+      "deleted": "Deleted",
+      "all": "All"
+    }
+  },
   "labels": {
     "email": "Email",
     "name": "Name",
