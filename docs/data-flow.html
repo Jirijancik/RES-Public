@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RES Data Flow &mdash; ICO Search</title>
+<title>RES Data Flow Visualization</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -24,6 +24,10 @@
     --c-external-bg: #fef2f2;
     --c-response: #64748b;
     --c-response-bg: #f8fafc;
+    --c-database: #0891b2;
+    --c-database-bg: #ecfeff;
+    --c-sync: #6366f1;
+    --c-sync-bg: #eef2ff;
     --radius: 12px;
     --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     --shadow-lg: 0 4px 12px rgba(0,0,0,.08);
@@ -42,7 +46,7 @@
   /* ---- Header ---- */
   header {
     text-align: center;
-    margin-bottom: 3rem;
+    margin-bottom: 1.5rem;
   }
   header h1 {
     font-size: 1.75rem;
@@ -56,8 +60,41 @@
     max-width: 560px;
     margin: 0 auto;
   }
+
+  /* ---- Tabs ---- */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: .5rem;
+    margin-bottom: 1.5rem;
+  }
+  .tab-btn {
+    padding: .6rem 1.5rem;
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--c-muted);
+    font-size: .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: .01em;
+  }
+  .tab-btn:hover {
+    background: #f3f4f6;
+    color: var(--c-text);
+  }
+  .tab-btn.active {
+    background: var(--c-text);
+    color: #fff;
+    border-color: var(--c-text);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   .scenario {
-    margin-top: 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
     background: #fff;
     border: 1px solid var(--c-border);
     border-radius: var(--radius);
@@ -66,6 +103,8 @@
     font-size: .9rem;
   }
   .scenario strong { color: var(--c-frontend); }
+  .scenario .t-sync { color: var(--c-sync); }
+  .scenario .t-database { color: var(--c-database); }
 
   /* ---- Legend (sticky side panel) ---- */
   .legend {
@@ -324,6 +363,14 @@
     border-color: var(--c-backend);
     color: var(--c-backend);
   }
+  .branch-path.skip {
+    border-color: var(--c-sync);
+    color: var(--c-sync);
+  }
+  .branch-path.cont {
+    border-color: var(--c-external);
+    color: var(--c-external);
+  }
   .branch-path strong { display: block; font-size: .9rem; margin-bottom: .2rem; }
 
   /* Divider */
@@ -345,6 +392,27 @@
     flex: 1;
     height: 1px;
     background: var(--c-border);
+  }
+
+  /* Flow divider between pipelines */
+  .flow-divider {
+    width: 100%;
+    max-width: 700px;
+    margin: 2.5rem 0 1.5rem;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    text-align: center;
+  }
+  .flow-divider h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: .25rem;
+  }
+  .flow-divider p {
+    font-size: .85rem;
+    color: var(--c-muted);
   }
 
   /* Architecture diagram at bottom */
@@ -390,24 +458,32 @@
   .t-cache { color: var(--c-cache); }
   .t-external { color: var(--c-external); }
   .t-response { color: var(--c-response); }
+  .t-database { color: var(--c-database); }
+  .t-sync { color: var(--c-sync); }
   .bg-frontend { background: var(--c-frontend); }
   .bg-network { background: var(--c-network); }
   .bg-backend { background: var(--c-backend); }
   .bg-cache { background: var(--c-cache); }
   .bg-external { background: var(--c-external); }
   .bg-response { background: var(--c-response); }
+  .bg-database { background: var(--c-database); }
+  .bg-sync { background: var(--c-sync); }
   .indicator-frontend { background: var(--c-frontend-bg); }
   .indicator-network { background: var(--c-network-bg); }
   .indicator-backend { background: var(--c-backend-bg); }
   .indicator-cache { background: var(--c-cache-bg); }
   .indicator-external { background: var(--c-external-bg); }
   .indicator-response { background: var(--c-response-bg); }
+  .indicator-database { background: var(--c-database-bg); }
+  .indicator-sync { background: var(--c-sync-bg); }
   .border-frontend { border-color: var(--c-frontend) !important; }
   .border-network { border-color: var(--c-network) !important; }
   .border-backend { border-color: var(--c-backend) !important; }
   .border-cache { border-color: var(--c-cache) !important; }
   .border-external { border-color: var(--c-external) !important; }
   .border-response { border-color: var(--c-response) !important; }
+  .border-database { border-color: var(--c-database) !important; }
+  .border-sync { border-color: var(--c-sync) !important; }
 
   @media (max-width: 600px) {
     body { padding: 1rem .5rem 4rem; }
@@ -421,19 +497,45 @@
 
 <header>
   <h1>RES &mdash; Data Flow Visualization</h1>
-  <p>How data travels through the full stack when a user searches the Czech Business Registry (ARES) by ICO number.</p>
-  <div class="scenario">
-    User opens the homepage, types <strong>ICO: 12345678</strong> into the search form, and clicks <strong>Search</strong>. Here's exactly what happens, step by step.
-  </div>
+  <p>How data travels through the full stack for the Czech Business Registry systems.</p>
 </header>
 
-<div class="legend">
+<div class="tabs">
+  <button class="tab-btn active" data-tab="ares">ARES</button>
+  <button class="tab-btn" data-tab="justice">Justice</button>
+</div>
+
+<!-- ================================================================== -->
+<!-- ARES LEGEND                                                        -->
+<!-- ================================================================== -->
+<div class="legend" id="legend-ares">
   <div class="legend-item"><div class="legend-dot bg-frontend"></div> Frontend (React)</div>
   <div class="legend-item"><div class="legend-dot bg-network"></div> Network / Proxy</div>
   <div class="legend-item"><div class="legend-dot bg-backend"></div> Backend (Django)</div>
   <div class="legend-item"><div class="legend-dot bg-cache"></div> Cache (Redis)</div>
   <div class="legend-item"><div class="legend-dot bg-external"></div> External API (ARES)</div>
   <div class="legend-item"><div class="legend-dot bg-response"></div> Response path</div>
+</div>
+
+<!-- ================================================================== -->
+<!-- JUSTICE LEGEND                                                     -->
+<!-- ================================================================== -->
+<div class="legend" id="legend-justice" style="display:none">
+  <div class="legend-item"><div class="legend-dot bg-sync"></div> Sync Pipeline</div>
+  <div class="legend-item"><div class="legend-dot bg-backend"></div> Backend (Django)</div>
+  <div class="legend-item"><div class="legend-dot bg-external"></div> External API</div>
+  <div class="legend-item"><div class="legend-dot bg-database"></div> Database (PostgreSQL)</div>
+  <div class="legend-item"><div class="legend-dot bg-cache"></div> Cache (Redis)</div>
+  <div class="legend-item"><div class="legend-dot bg-response"></div> Response path</div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TAB: ARES                                                          -->
+<!-- ================================================================== -->
+<div class="tab-panel active" id="panel-ares">
+
+<div class="scenario">
+  User opens the homepage, types <strong>ICO: 12345678</strong> into the search form, and clicks <strong>Search</strong>. Here's exactly what happens, step by step.
 </div>
 
 <div class="flow">
@@ -698,7 +800,7 @@ server {
     <div class="card-code">
       <span class="code-path">config/urls.py</span>
 <pre>
-<span class="code-comment"># Root URL config &mdash; like Express app.use('/prefix', router)</span>
+<span class="code-comment"># Root URL config</span>
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", include("core.urls")),
@@ -710,16 +812,14 @@ urlpatterns = [
 </pre>
       <span class="code-path">ares/urls.py</span>
 <pre>
-<span class="code-comment"># App-level router &mdash; like Express router.post('/path', handler)</span>
 urlpatterns = [
     <span class="code-highlight">path("search/", views.AresSearchView.as_view())</span>,       <span class="code-comment"># &larr; matches!</span>
     path("subjects/&lt;str:ico&gt;/", views.AresSubjectDetailView.as_view()),
 ]
-<span class="code-comment"># "search/" matches &rarr; call AresSearchView</span>
 <span class="code-comment"># .as_view() sees HTTP method is POST &rarr; call .post()</span>
 </pre>
       <div class="card-note">
-        <strong>Two-stage routing:</strong> The full URL <code>/api/v1/ares/search/</code> is matched in two steps. First <code>config/urls.py</code> matches and strips <code>api/v1/ares/</code>, then <code>ares/urls.py</code> matches <code>search/</code> to the right view class. This is like Express's <code>app.use('/api/v1/ares', aresRouter)</code> + <code>router.post('/search', handler)</code>.
+        <strong>Two-stage routing:</strong> The full URL <code>/api/v1/ares/search/</code> is matched in two steps. First <code>config/urls.py</code> matches and strips <code>api/v1/ares/</code>, then <code>ares/urls.py</code> matches <code>search/</code> to the right view class.
       </div>
     </div>
   </div>
@@ -754,7 +854,7 @@ class AresSearchView(APIView):
         return Response(<span class="code-highlight">SearchResultSerializer(result).data</span>)
 </pre>
       <div class="card-note">
-        <strong>Thin controller pattern:</strong> The view doesn't contain any business logic. It follows a strict 3-step pattern: validate input &rarr; delegate to service &rarr; format output. This means the same <code>AresService.search()</code> can be called from a CLI command, a background job, or a test &mdash; without needing HTTP.
+        <strong>Thin controller pattern:</strong> The view doesn't contain any business logic. It follows a strict 3-step pattern: validate input &rarr; delegate to service &rarr; format output.
       </div>
     </div>
   </div>
@@ -783,18 +883,9 @@ class SearchRequestSerializer(serializers.Serializer):
     businessName = serializers.CharField(required=False, allow_blank=True)
     legalForm    = serializers.ListField(child=serializers.CharField(), required=False)
     location     = SearchLocationSerializer(required=False)
-
-<span class="code-comment"># What happens:</span>
-<span class="code-comment"># { "ico": ["12345678"], "count": 10 }     &rarr; valid &check;</span>
-<span class="code-comment"># { "count": -5 }                           &rarr; 400 Bad Request &cross;</span>
-<span class="code-comment"># { "count": 999 }                          &rarr; 400 Bad Request &cross;</span>
-<span class="code-comment"># { "start": "abc" }                        &rarr; 400 Bad Request &cross;</span>
-
-<span class="code-comment"># After validation, serializer.validated_data contains</span>
-<span class="code-comment"># only the clean, typed values &mdash; this is what the service receives.</span>
 </pre>
       <div class="card-note">
-        <strong>Why this matters:</strong> Serializers act as a security boundary. Even if someone sends garbage JSON to your API, the service layer never sees it &mdash; invalid requests are rejected here with a clear error message. Field names are <code>camelCase</code> to match the frontend TypeScript types exactly, so no translation is needed between frontend and backend.
+        <strong>Why this matters:</strong> Serializers act as a security boundary. Even if someone sends garbage JSON to your API, the service layer never sees it &mdash; invalid requests are rejected here with a clear error message.
       </div>
     </div>
   </div>
@@ -826,8 +917,6 @@ class AresService:
     def search(self, params: dict) -&gt; dict:
         <span class="code-comment"># 1. Translate English field names to Czech for ARES API</span>
         request_body = <span class="code-highlight">to_search_request(params)</span>
-        <span class="code-comment">#    { "ico": ["12345678"] } &rarr; { "ico": ["12345678"] }</span>
-        <span class="code-comment">#    { "businessName": "X" } &rarr; { "obchodniJmeno": "X" }</span>
 
         <span class="code-comment"># 2. Check Redis cache (SHA256 hash of params)</span>
         cache_hash = self.cache.hash_params(request_body)
@@ -855,7 +944,7 @@ class AresService:
         return result
 </pre>
       <div class="card-note">
-        <strong>This is the most important backend file.</strong> It orchestrates: translation &rarr; cache check &rarr; rate limit &rarr; external API call &rarr; response parsing &rarr; cache storage. The <code>to_search_request()</code> function maps English field names to Czech ones that the government API expects.
+        <strong>This is the most important backend file.</strong> It orchestrates: translation &rarr; cache check &rarr; rate limit &rarr; external API call &rarr; response parsing &rarr; cache storage.
       </div>
     </div>
   </div>
@@ -916,8 +1005,7 @@ class CacheService:
       <div class="card-note">
         <strong>Cache keys explained:</strong><br>
         Search: <code>ares:search:a1b2c3d4e5f6g7h8</code> (hash of query params) &mdash; TTL 15 min<br>
-        Detail: <code>ares:detail:12345678</code> (the ICO itself) &mdash; TTL 1 hour<br><br>
-        Redis runs in Docker with max 256MB RAM and LRU eviction (least recently used entries get deleted first when memory is full).
+        Detail: <code>ares:detail:12345678</code> (the ICO itself) &mdash; TTL 1 hour
       </div>
     </div>
   </div>
@@ -950,7 +1038,7 @@ class AresClient:
     def search(self, request_body: dict) -&gt; dict:
         resp = self.session.post(
             f"{self.base_url}<span class="code-highlight">/vyhledat</span>",  <span class="code-comment"># Czech for "search"</span>
-            json=request_body,    <span class="code-comment"># { "ico": ["12345678"] }</span>
+            json=request_body,
             timeout=15,
         )
         resp.raise_for_status()
@@ -961,8 +1049,7 @@ class AresClient:
         <code>POST https://ares.gov.cz/.../ekonomicke-subjekty/vyhledat</code><br>
         <code>{ "ico": ["12345678"] }</code><br><br>
         <strong>What comes back (in Czech):</strong><br>
-        <code>{ "pocetCelkem": 1, "ekonomickeSubjekty": [{ "ico": "12345678", "obchodniJmeno": "Firma s.r.o.", "sidlo": { ... } }] }</code><br><br>
-        This is a <em>government API</em> &mdash; it uses Czech field names. The next step translates them.
+        <code>{ "pocetCelkem": 1, "ekonomickeSubjekty": [{ "ico": "12345678", "obchodniJmeno": "Firma s.r.o." }] }</code>
       </div>
     </div>
   </div>
@@ -1000,17 +1087,11 @@ def parse_economic_subject(subject: dict) -&gt; dict:
         "legalForm":      subject.get("pravniForma"),
         "foundationDate": subject.get("datumVzniku"),
         "vatId":          subject.get("dic"),
-        <span class="code-comment">// ... more fields ...</span>
     }
     return { "icoId": subject["ico"], "records": [record] }
-
-<span class="code-comment"># Address fields also get translated:</span>
-<span class="code-comment">#   "nazevObce"  &rarr; "municipalityName"</span>
-<span class="code-comment">#   "nazevUlice" &rarr; "streetName"</span>
-<span class="code-comment">#   "psc"        &rarr; "postalCode"</span>
 </pre>
       <div class="card-note">
-        <strong>Why this exists:</strong> The Czech government API returns everything in Czech (<code>obchodniJmeno</code>, <code>sidlo</code>, <code>pocetCelkem</code>). This parser converts every field name to English so the frontend works with clean, readable TypeScript types.
+        <strong>Why this exists:</strong> The Czech government API returns everything in Czech. This parser converts every field name to English so the frontend works with clean, readable TypeScript types.
       </div>
     </div>
   </div>
@@ -1043,15 +1124,11 @@ def parse_economic_subject(subject: dict) -&gt; dict:
    &darr;
 <span class="code-highlight">views.py</span>            &rarr; SearchResultSerializer formats output JSON
    &darr;
-<span class="code-highlight">urls.py</span>             &rarr; (routing layer, pass-through on the way back)
-   &darr;
 <span class="code-highlight">Django/Gunicorn</span>     &rarr; HTTP 200 JSON response
    &darr;
 <span class="code-highlight">nginx</span>               &rarr; Forwards response to browser
    &darr;
 <span class="code-highlight">client.ts (Axios)</span>   &rarr; Parses JSON, returns response.data
-   &darr;
-<span class="code-highlight">ares.endpoints.ts</span>   &rarr; Returns typed AresSearchResult
    &darr;
 <span class="code-highlight">ares.mutations.ts</span>   &rarr; TanStack Query caches + pre-caches each subject
    &darr;
@@ -1080,8 +1157,7 @@ def parse_economic_subject(subject: dict) -&gt; dict:
       <div class="card-note">
         <strong>Two caches at play:</strong><br>
         1. <strong>Backend (Redis)</strong>: Prevents re-calling the government API. TTL: 15 min for search, 1 hr for detail.<br>
-        2. <strong>Frontend (TanStack Query)</strong>: Prevents re-calling your Django backend. Stale time: 1 min. Cache time: 5 min.<br><br>
-        So the second time you search the same ICO within a minute, it doesn't even leave the browser!
+        2. <strong>Frontend (TanStack Query)</strong>: Prevents re-calling your Django backend. Stale time: 1 min. Cache time: 5 min.
       </div>
     </div>
   </div>
@@ -1149,11 +1225,954 @@ def parse_economic_subject(subject: dict) -&gt; dict:
 
 <div style="margin-top:3rem; text-align:center; color:var(--c-muted); font-size:.78rem;">
   <p>Click any step card to expand the code snippet.</p>
-  <p style="margin-top:.25rem;">Generated for the GTDN/RES project.</p>
 </div>
+
+</div><!-- /#panel-ares -->
+
+
+<!-- ================================================================== -->
+<!-- TAB: JUSTICE                                                       -->
+<!-- ================================================================== -->
+<div class="tab-panel" id="panel-justice">
+
+<div class="scenario">
+  The Justice module has <strong class="t-sync">three data pipelines</strong>:
+  <strong>(A)</strong> Batch sync from the Czech open data portal into PostgreSQL,
+  <strong>(B)</strong> Entity lookup API serving stored data to the frontend, and
+  <strong>(C)</strong> Live document scraping from the Czech court registry (Sbirka listin).
+</div>
+
+<div class="flow">
+
+  <!-- ============================================================== -->
+  <!-- FLOW A: BATCH SYNC PIPELINE                                     -->
+  <!-- ============================================================== -->
+  <div class="flow-divider" style="border-left: 3px solid var(--c-sync);">
+    <h3 class="t-sync">Pipeline A &mdash; Batch Data Sync</h3>
+    <p>A cron job downloads open data XML from <code>dataor.justice.cz</code>, parses it with streaming XML, and bulk-upserts entities into PostgreSQL.</p>
+  </div>
+
+  <!-- ====== SECTION: SYNC TRIGGER ====== -->
+  <div class="section-label t-sync">Sync Trigger &mdash; Management Command</div>
+
+  <!-- Step A1: Management Command -->
+  <div class="card border-sync" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-sync" style="opacity:.3"></div>
+      <div class="card-step bg-sync">A1</div>
+      <div class="card-body">
+        <div class="card-file t-sync">justice/management/commands/justice_sync.py</div>
+        <div class="card-desc">Django management command &mdash; the entry point for all data ingestion. Triggered by cron, Kubernetes CronJob, or manually.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">justice/management/commands/justice_sync.py</span>
+<pre>
+<span class="code-comment"># Usage examples:</span>
+<span class="code-comment"># Sync all "actual" datasets for 2026</span>
+<span class="code-highlight">python manage.py justice_sync --type actual --year 2026</span>
+
+<span class="code-comment"># Sync only SROs from Prague</span>
+python manage.py justice_sync --legal-form sro --location praha
+
+<span class="code-comment"># Force re-sync a specific dataset</span>
+python manage.py justice_sync --dataset sro-actual-praha-2026 --force
+
+class Command(BaseCommand):
+    def handle(self, *args, **options):
+        sync_service = <span class="code-highlight">JusticeSyncService()</span>
+
+        if options["dataset"]:
+            self._sync_single(sync_service, options)
+        elif options["dry_run"]:
+            self._dry_run(sync_service, options)
+        else:
+            <span class="code-highlight">self._sync_multiple(sync_service, options)</span>
+</pre>
+      <div class="card-note">
+        <strong>Dataset ID format:</strong> <code>sro-actual-praha-2026</code> encodes <em>legal form</em>, <em>type</em>, <em>court location</em>, and <em>year</em>. The command can filter by any combination of these. <code>--dry-run</code> lists matching datasets without downloading anything.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step A2: Sync Service -->
+  <div class="card border-sync" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-sync" style="opacity:.3"></div>
+      <div class="card-step bg-sync">A2</div>
+      <div class="card-body">
+        <div class="card-file t-sync">backend/justice/services.py &rarr; JusticeSyncService</div>
+        <div class="card-desc">Orchestrates the full sync: list datasets &rarr; filter &rarr; download &rarr; parse &rarr; upsert. Tracks status in <code>DatasetSync</code> model.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/services.py</span>
+<pre>
+class JusticeSyncService:
+    def __init__(self):
+        self.client = justice_ckan_client
+        self.outbound_throttle = GlobalOutboundThrottle(
+            key="justice", max_requests=<span class="code-highlight">5</span>, window=<span class="code-highlight">60</span>  <span class="code-comment"># 5 req/min</span>
+        )
+
+    def sync_dataset(self, dataset_id: str, force=False) -&gt; dict:
+        <span class="code-comment"># 1. Create or update DatasetSync tracking record</span>
+        ds, _ = DatasetSync.objects.update_or_create(
+            dataset_id=dataset_id,
+            defaults=self._parse_dataset_id(dataset_id),
+        )
+
+        <span class="code-comment"># 2. Fetch metadata, find the .xml.gz resource</span>
+        metadata = <span class="code-highlight">self.client.get_dataset(dataset_id)</span>
+        xml_gz_resource = self._find_xml_gz_resource(metadata)
+
+        <span class="code-comment"># 3. Change detection via HTTP HEAD Content-Length</span>
+        filename = xml_gz_resource["url"].rsplit("/", 1)[-1]
+        remote_size = <span class="code-highlight">self.client.get_file_size(filename)</span>
+
+        <span class="code-comment"># Skip unchanged datasets unless forced</span>
+        if not force and ds.status == "completed" and ds.file_size == remote_size:
+            return {"status": "<span class="code-highlight">skipped</span>", ...}
+
+        <span class="code-comment"># 4. Download and parse (steps A3-A6)</span>
+        ds.status = "downloading"
+        data_stream = <span class="code-highlight">self.client.download_file_stream(filename)</span>
+        ...
+</pre>
+      <div class="card-note">
+        <strong>Smart change detection:</strong> Before downloading a potentially huge XML file (hundreds of MB), a cheap HTTP HEAD request compares the remote file size against the stored <code>DatasetSync.file_size</code>. If unchanged and status is "completed", the entire download is skipped. This saves bandwidth and processing time for the daily cron runs.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Branch: Skip vs Download -->
+  <div class="branch">
+    <div class="branch-path skip">
+      <strong>Skipped</strong>
+      File size unchanged since last sync.<br>No download needed.<br>
+      <span style="font-size:.75rem">Use <code>--force</code> to override</span>
+    </div>
+    <div class="branch-path cont">
+      <strong>Changed</strong>
+      Remote file size differs from stored value. Continue to download &amp; parse.
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- ====== SECTION: EXTERNAL ====== -->
+  <div class="section-label t-external">External &mdash; CKAN Open Data API</div>
+
+  <!-- Step A3: CKAN Client -->
+  <div class="card border-external" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-external" style="opacity:.3"></div>
+      <div class="card-step bg-external">A3</div>
+      <div class="card-body">
+        <div class="card-file t-external">backend/justice/client.py &rarr; JusticeCKANClient</div>
+        <div class="card-desc">HTTP client for the Czech Justice open data portal. Uses <code>requests.Session</code> for connection pooling. Three key methods: list, metadata, and streaming download.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/client.py</span>
+<pre>
+JUSTICE_CKAN_API_URL = <span class="code-highlight">"https://dataor.justice.cz/api/3/action"</span>
+JUSTICE_FILE_API_URL = <span class="code-highlight">"https://dataor.justice.cz/api/file"</span>
+
+class JusticeCKANClient:
+    def list_datasets(self) -&gt; list[str]:
+        <span class="code-comment"># GET /api/3/action/package_list</span>
+        resp = self.session.get(f"{CKAN_API}/package_list")
+        return resp.json()["result"]  <span class="code-comment"># ["sro-actual-praha-2026", ...]</span>
+
+    def get_dataset(self, dataset_id: str) -&gt; dict:
+        <span class="code-comment"># GET /api/3/action/package_show?id=sro-actual-praha-2026</span>
+        resp = self.session.get(f"{CKAN_API}/package_show", params={"id": dataset_id})
+        return resp.json()["result"]  <span class="code-comment"># { "resources": [{"url": "...xml.gz"}] }</span>
+
+    def get_file_size(self, filename: str) -&gt; int | None:
+        <span class="code-comment"># HEAD request for Content-Length (change detection)</span>
+        resp = self.session.head(f"{FILE_API}/{filename}")
+        return int(resp.headers.get("Content-Length"))
+
+    def <span class="code-highlight">download_file_stream</span>(self, filename: str) -&gt; Iterator[bytes]:
+        <span class="code-comment"># GET /api/file/{filename} with stream=True</span>
+        resp = self.session.get(f"{FILE_API}/{filename}", <span class="code-highlight">stream=True</span>)
+        return resp.iter_content(chunk_size=65536)
+        <span class="code-comment"># Returns byte chunks &mdash; never loads full file into memory</span>
+</pre>
+      <div class="card-note">
+        <strong>Streaming is critical:</strong> These XML files can be hundreds of MB compressed. The <code>stream=True</code> parameter tells <code>requests</code> to yield chunks instead of loading the entire response into memory. Each 64KB chunk flows directly into the gzip decompressor and XML parser.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="arrow-label">Streaming .xml.gz bytes flow into the parser</div>
+  <div class="arrow"></div>
+
+  <!-- ====== SECTION: PARSING ====== -->
+  <div class="section-label t-backend">Backend &mdash; Streaming XML Parser</div>
+
+  <!-- Step A4: XML Parser -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">A4</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/parsers/xml_parser.py</div>
+        <div class="card-desc">Streaming XML parser using <code>lxml.etree.iterparse</code>. Decompresses gzip, processes one <code>&lt;Subjekt&gt;</code> at a time, and frees memory after each record.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/parsers/xml_parser.py</span>
+<pre>
+def <span class="code-highlight">parse_xml_stream</span>(data_stream: Iterator[bytes]) -&gt; Iterator[dict]:
+    <span class="code-comment"># 1. Buffer the gzip stream (needed for GzipFile)</span>
+    raw_buffer = BytesIO()
+    for chunk in data_stream:
+        raw_buffer.write(chunk)
+    raw_buffer.seek(0)
+
+    <span class="code-comment"># 2. Decompress and iterparse one &lt;Subjekt&gt; at a time</span>
+    with gzip.GzipFile(fileobj=raw_buffer) as gz_file:
+        context = etree.iterparse(gz_file, events=("end",), tag="Subjekt")
+        for _event, elem in context:
+            yield <span class="code-highlight">_parse_subjekt(elem)</span>
+            <span class="code-comment"># Free memory: clear element and remove siblings</span>
+            elem.clear()
+            while elem.getprevious() is not None:
+                del elem.getparent()[0]
+
+def _parse_subjekt(elem) -&gt; dict:
+    return {
+        "name": _text(elem, "nazev"),         <span class="code-comment"># Company name</span>
+        "ico": _text(elem, "ico"),             <span class="code-comment"># ID number</span>
+        "registration_date": _text(elem, "zapisDatum"),
+        "deletion_date": _text(elem, "vymazDatum"),
+        "facts": [_parse_udaj(u) for u in elem.findall("udaje/Udaj")],
+    }
+</pre>
+      <div class="card-note">
+        <strong>Memory management:</strong> The <code>iterparse</code> pattern processes XML elements one at a time. After yielding each <code>&lt;Subjekt&gt;</code>, the parser calls <code>elem.clear()</code> and removes preceding siblings from the tree. This keeps memory usage constant regardless of file size &mdash; essential for files with tens of thousands of entities.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- ====== SECTION: DATABASE ====== -->
+  <div class="section-label t-database">Database &mdash; PostgreSQL Upsert</div>
+
+  <!-- Step A5: Database Upsert -->
+  <div class="card border-database" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-database" style="opacity:.3"></div>
+      <div class="card-step bg-database">A5</div>
+      <div class="card-body">
+        <div class="card-file t-database">backend/justice/services.py &rarr; _upsert_entity()</div>
+        <div class="card-desc">Within a single <code>transaction.atomic()</code>, deletes existing data for the dataset and bulk-creates entities with all related records (facts, persons, addresses).</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/services.py</span>
+<pre>
+<span class="code-comment"># Inside sync_dataset():</span>
+with <span class="code-highlight">transaction.atomic()</span>:
+    <span class="code-comment"># Full replace: delete existing entities for this dataset</span>
+    Entity.objects.filter(dataset_id=dataset_id).delete()
+
+    for subjekt in parse_xml_stream(data_stream):
+        <span class="code-highlight">self._upsert_entity(subjekt, dataset_id)</span>
+        entity_count += 1
+
+def _upsert_entity(self, subjekt: dict, dataset_id: str):
+    <span class="code-comment"># 1. Create Entity record</span>
+    entity = <span class="code-highlight">Entity.objects.create</span>(
+        ico=subjekt["ico"].zfill(8),  <span class="code-comment"># zero-pad to 8 digits</span>
+        name=subjekt["name"],
+        dataset_id=dataset_id,
+        ...
+    )
+
+    <span class="code-comment"># 2. Collect facts in DFS order (recursive sub_facts)</span>
+    fact_entries, persons, addresses = [], [], []
+    <span class="code-highlight">_collect_facts(entity, subjekt["facts"], ...)</span>
+
+    <span class="code-comment"># 3. Bulk create level by level (resolves parent FKs)</span>
+    for depth in range(max_depth + 1):
+        created = <span class="code-highlight">EntityFact.objects.bulk_create(objs_at_depth)</span>
+        <span class="code-comment"># Map collect_index &rarr; real PK for parent references</span>
+
+    <span class="code-comment"># 4. Bulk create persons and addresses</span>
+    Person.objects.bulk_create([Person(**p) for p in persons])
+    Address.objects.bulk_create([Address(**a) for a in addresses])
+</pre>
+      <div class="card-note">
+        <strong>Level-by-level bulk creation:</strong> Facts form a tree (parent &rarr; sub_facts). Since Django's <code>bulk_create</code> needs real PKs for foreign keys, we create facts level by level: first depth 0 (root facts), then depth 1 (first-level sub-facts, using the PKs from depth 0), and so on. This turns N individual INSERTs into ~3 bulk INSERTs.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step A6: DatasetSync Tracking -->
+  <div class="card border-database" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-database" style="opacity:.3"></div>
+      <div class="card-step bg-database">A6</div>
+      <div class="card-body">
+        <div class="card-file t-database">backend/justice/models.py &rarr; DatasetSync</div>
+        <div class="card-desc">Tracks sync progress and health. Status transitions: <code>pending &rarr; downloading &rarr; parsing &rarr; completed|failed</code>.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/models.py</span>
+<pre>
+class DatasetSync(models.Model):
+    dataset_id      = CharField(unique=True)    <span class="code-comment"># "sro-actual-praha-2026"</span>
+    legal_form      = CharField()               <span class="code-comment"># "sro"</span>
+    location        = CharField()               <span class="code-comment"># "praha"</span>
+    year            = IntegerField()            <span class="code-comment"># 2026</span>
+
+    <span class="code-highlight">status</span>          = CharField()               <span class="code-comment"># pending/downloading/parsing/completed/failed</span>
+    file_size       = BigIntegerField(null=True)<span class="code-comment"># for change detection</span>
+    entity_count    = IntegerField(default=0)   <span class="code-comment"># entities processed</span>
+    duration_seconds = FloatField(null=True)    <span class="code-comment"># sync duration</span>
+    error_message   = TextField(blank=True)     <span class="code-comment"># failure details</span>
+    last_synced_at  = DateTimeField(null=True)  <span class="code-comment"># last successful sync</span>
+
+<span class="code-comment"># Status transitions during sync:</span>
+<span class="code-comment"># pending &rarr; downloading &rarr; parsing &rarr; completed</span>
+<span class="code-comment">#                                    &rarr; failed (with error_message)</span>
+</pre>
+      <div class="card-note">
+        <strong>Data model hierarchy:</strong><br>
+        <code>DatasetSync</code> (1) &rarr; tracks &rarr; (many) <code>Entity</code><br>
+        <code>Entity</code> (1) &rarr; has &rarr; (many) <code>EntityFact</code><br>
+        <code>EntityFact</code> (1) &rarr; has &rarr; (0..1) <code>Person</code> + (many) <code>Address</code><br>
+        <code>EntityFact</code> (1) &rarr; has &rarr; (many) <code>EntityFact</code> (self-referential sub_facts)
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================== -->
+  <!-- FLOW B: ENTITY LOOKUP API                                       -->
+  <!-- ============================================================== -->
+  <div class="flow-divider" style="border-left: 3px solid var(--c-backend);">
+    <h3 class="t-backend">Pipeline B &mdash; Entity Lookup API</h3>
+    <p>When a user searches for a company by ICO, the API reads pre-synced data from PostgreSQL (not from a live government API call like ARES).</p>
+  </div>
+
+  <div class="section-label t-backend">Backend &mdash; Django REST Framework</div>
+
+  <!-- Step B1: URL Routing -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">B1</div>
+      <div class="card-body">
+        <div class="card-file t-backend">config/urls.py &rarr; justice/urls.py</div>
+        <div class="card-desc">Nine API endpoints under <code>/api/v1/justice/</code> covering entity lookup, search, history, persons, addresses, documents, datasets, and sync status.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/urls.py</span>
+<pre>
+urlpatterns = [
+    <span class="code-comment"># Entity endpoints</span>
+    path("entities/", EntityLookupView),           <span class="code-comment"># ?ico=12345678</span>
+    path("entities/search/", EntitySearchView),     <span class="code-comment"># ?name=&amp;legalForm=&amp;location=</span>
+    path("entities/&lt;ico&gt;/history/", EntityHistoryView),
+    path("entities/&lt;ico&gt;/persons/", EntityPersonsView),
+    path("entities/&lt;ico&gt;/addresses/", EntityAddressesView),
+    <span class="code-highlight">path("entities/&lt;ico&gt;/documents/", EntityDocumentsView)</span>, <span class="code-comment"># Pipeline C</span>
+
+    <span class="code-comment"># Document proxy</span>
+    <span class="code-highlight">path("documents/&lt;download_id&gt;/", DocumentProxyView)</span>,   <span class="code-comment"># Pipeline C</span>
+
+    <span class="code-comment"># Dataset / sync</span>
+    path("datasets/", DatasetListView),
+    path("sync/status/", SyncStatusView),
+]
+</pre>
+      <div class="card-note">
+        <strong>Key difference from ARES:</strong> ARES has 2 endpoints (search + detail). Justice has 9 endpoints because the data is stored locally in PostgreSQL and can be queried in many ways. The <code>documents/</code> and <code>documents/&lt;download_id&gt;/</code> endpoints trigger live scraping (Pipeline C).
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step B2: View -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">B2</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/views.py &rarr; EntityLookupView</div>
+        <div class="card-desc">Same thin controller pattern as ARES: validate &rarr; service &rarr; serialize &rarr; respond. All 9 views follow this exact pattern.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/views.py</span>
+<pre>
+class EntityLookupView(APIView):
+    def get(self, request):
+        <span class="code-comment"># 1. Validate query params</span>
+        serializer = <span class="code-highlight">EntityLookupSerializer(data=request.query_params)</span>
+        serializer.is_valid(raise_exception=True)
+
+        <span class="code-comment"># 2. Call the service layer</span>
+        service = JusticeService()
+        result = <span class="code-highlight">service.get_entity_by_ico(serializer.validated_data["ico"])</span>
+
+        <span class="code-comment"># 3. Serialize and return</span>
+        return Response(<span class="code-highlight">EntityDetailSerializer(result).data</span>)
+
+<span class="code-comment"># Every other view follows the same pattern:</span>
+<span class="code-comment"># EntitySearchView    &rarr; service.search_entities(params)</span>
+<span class="code-comment"># EntityHistoryView   &rarr; service.get_entity_history(ico)</span>
+<span class="code-comment"># EntityPersonsView   &rarr; service.get_entity_persons(ico)</span>
+<span class="code-comment"># EntityAddressesView &rarr; service.get_entity_addresses(ico)</span>
+<span class="code-comment"># DatasetListView     &rarr; service.list_datasets()</span>
+<span class="code-comment"># SyncStatusView      &rarr; service.get_sync_status()</span>
+</pre>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step B3: JusticeService -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">B3</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/services.py &rarr; JusticeService</div>
+        <div class="card-desc">Query layer that reads from PostgreSQL. Normalizes ICO, checks Redis cache, and runs Django ORM queries with <code>select_related</code> / <code>prefetch_related</code> for efficiency.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/services.py</span>
+<pre>
+class JusticeService:
+    def __init__(self):
+        self.cache = CacheService(prefix="justice", default_ttl=900)
+
+    def get_entity_by_ico(self, ico: str) -&gt; dict:
+        <span class="code-comment"># 1. Normalize ICO (zero-pad to 8 digits)</span>
+        normalized = <span class="code-highlight">ico.zfill(8)</span>
+
+        <span class="code-comment"># 2. Check Redis cache</span>
+        cached = self.cache.get("entity", normalized)
+        if cached is not None:
+            <span class="code-highlight">return cached</span>  <span class="code-comment"># CACHE HIT &mdash; skip DB query</span>
+
+        <span class="code-comment"># 3. Query PostgreSQL with eager loading</span>
+        entity = Entity.objects.filter(ico=normalized).first()
+        facts = EntityFact.objects.filter(entity=entity) \
+            <span class="code-highlight">.select_related("person")</span> \
+            <span class="code-highlight">.prefetch_related("addresses", "sub_facts")</span> \
+            .order_by("registration_date")
+
+        <span class="code-comment"># 4. Transform model instances to camelCase API dicts</span>
+        result = <span class="code-highlight">parse_entity_detail(entity, list(facts))</span>
+
+        <span class="code-comment"># 5. Cache for 1 hour</span>
+        self.cache.set(result, "entity", normalized, ttl=3600)
+        return result
+</pre>
+      <div class="card-note">
+        <strong>Key difference from ARES:</strong> ARES calls an external government API on cache miss. Justice reads from <em>local PostgreSQL</em> &mdash; the data was already ingested by Pipeline A. This makes Justice queries much faster and independent of government API availability.<br><br>
+        <strong>Cache keys:</strong> <code>justice:entity:12345678</code> (1 hr), <code>justice:search:{hash}</code> (15 min), <code>justice:datasets</code> (1 hr), <code>justice:documents:12345678</code> (1 hr).
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Branch: Cache HIT vs MISS -->
+  <div class="branch">
+    <div class="branch-path hit">
+      <strong>Cache HIT</strong>
+      Result found in Redis.<br>Skip PostgreSQL query, return immediately.
+    </div>
+    <div class="branch-path miss">
+      <strong>Cache MISS</strong>
+      Query PostgreSQL with eager loading, then cache the result.
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <div class="section-label t-database">Database &mdash; PostgreSQL Query</div>
+
+  <!-- Step B4: Database Query -->
+  <div class="card border-database" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-database" style="opacity:.3"></div>
+      <div class="card-step bg-database">B4</div>
+      <div class="card-body">
+        <div class="card-file t-database">backend/justice/models.py</div>
+        <div class="card-desc">Five interconnected models store the full entity graph. Indexed for fast lookups by ICO, name, legal form, and court code.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/models.py</span>
+<pre>
+class <span class="code-highlight">Entity</span>(models.Model):
+    ico              = CharField(db_index=True)   <span class="code-comment"># "12345678"</span>
+    name             = CharField(max_length=1000)  <span class="code-comment"># "Firma s.r.o."</span>
+    registration_date = DateField(null=True)
+    legal_form_code  = CharField()                <span class="code-comment"># "112" (s.r.o.)</span>
+    court_code       = CharField()                <span class="code-comment"># "MSPH" (Praha)</span>
+    file_reference   = CharField()                <span class="code-comment"># "C 12345/MSPH"</span>
+    dataset_id       = CharField()                <span class="code-comment"># "sro-actual-praha-2026"</span>
+    is_active        = BooleanField(default=True)
+
+class <span class="code-highlight">EntityFact</span>(models.Model):              <span class="code-comment"># Hierarchical fact tree</span>
+    entity           = ForeignKey(Entity)
+    header           = CharField()                <span class="code-comment"># "Jednatel"</span>
+    fact_type_code   = CharField(db_index=True)   <span class="code-comment"># "STATUTARNI_ORGAN_CLEN"</span>
+    value_text       = CharField()
+    parent_fact      = ForeignKey("self", null=True)  <span class="code-comment"># self-referential!</span>
+
+class <span class="code-highlight">Person</span>(models.Model):                   <span class="code-comment"># OneToOne with EntityFact</span>
+    fact             = OneToOneField(EntityFact)
+    first_name, last_name, birth_date, entity_name, entity_ico ...
+
+class <span class="code-highlight">Address</span>(models.Model):                  <span class="code-comment"># ManyToOne with EntityFact</span>
+    fact             = ForeignKey(EntityFact)
+    municipality, street, postal_code, country ...
+</pre>
+      <div class="card-note">
+        <strong>Self-referential facts:</strong> <code>EntityFact.parent_fact</code> points to itself, creating a tree. For example, a "Statutory Body" fact can have sub-facts for each member. The <code>select_related("person")</code> and <code>prefetch_related("addresses", "sub_facts")</code> calls in the service layer load the entire tree in 3 SQL queries instead of N+1.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <div class="section-label t-backend">Backend &mdash; Response Transformation</div>
+
+  <!-- Step B5: Parser -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">B5</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/parser.py</div>
+        <div class="card-desc">Pure transformation functions &mdash; converts Django model instances to camelCase API response dicts. 9 public functions, zero side effects.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/parser.py</span>
+<pre>
+def <span class="code-highlight">parse_entity_detail</span>(entity: Entity, facts: list) -&gt; dict:
+    return {
+        "ico": entity.ico,
+        "name": entity.name,
+        "registrationDate": entity.registration_date.isoformat() if ... else None,
+        "legalForm": {"code": entity.legal_form_code, "name": entity.legal_form_name},
+        "fileReference": entity.file_reference,
+        "court": {"code": entity.court_code, "name": entity.court_name},
+        "isActive": entity.is_active,
+        <span class="code-highlight">"facts": [_parse_fact(f) for f in facts if f.parent_fact is None]</span>,
+    }
+
+def _parse_fact(fact: EntityFact) -&gt; dict:
+    return {
+        "header": fact.header,
+        "factType": {"code": fact.fact_type_code, "name": fact.fact_type_name},
+        "valueText": fact.value_text,
+        "person": _parse_person(fact.person) if hasattr(fact, "person") else None,
+        "addresses": [_parse_address(a) for a in fact.addresses.all()],
+        <span class="code-highlight">"subFacts": [_parse_fact(sf) for sf in fact.sub_facts.all()]</span>,  <span class="code-comment"># recursive!</span>
+    }
+</pre>
+      <div class="card-note">
+        <strong>Recursive serialization:</strong> Since facts form a tree, the parser recursively serializes <code>subFacts</code> inside each fact. The <code>prefetch_related("sub_facts")</code> from step B3 ensures this doesn't trigger additional SQL queries &mdash; all data is already in memory.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+  <div class="arrow-label">JSON response flows back to the client</div>
+  <div class="arrow"></div>
+
+  <div class="section-label t-response">Response Path</div>
+
+  <!-- Step B6: Response -->
+  <div class="card border-response" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-response" style="opacity:.3"></div>
+      <div class="card-step bg-response">B6</div>
+      <div class="card-body">
+        <div class="card-file t-response">The response flows back through every layer</div>
+        <div class="card-desc">DRF serializes &rarr; Django responds &rarr; Nginx forwards &rarr; Frontend receives the entity with its full fact tree.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+<pre>
+<span class="code-comment">// Example response for GET /api/v1/justice/entities/?ico=12345678</span>
+{
+  "ico": "12345678",
+  "name": "Firma s.r.o.",
+  "registrationDate": "2020-01-15",
+  "legalForm": { "code": "112", "name": "Spole&ccedil;nost s ru&ccedil;en&iacute;m omezen&yacute;m" },
+  "fileReference": "C 12345/MSPH",
+  "court": { "code": "MSPH", "name": "M&ecaron;stsk&yacute; soud v Praze" },
+  "isActive": true,
+  "facts": [
+    {
+      "header": "Jednatel",
+      "factType": { "code": "STATUTARNI_ORGAN_CLEN", "name": "..." },
+      "person": {
+        "firstName": "Jan",
+        "lastName": "Nov&aacute;k",
+        "birthDate": "1985-03-21"
+      },
+      "addresses": [{ "municipality": "Praha", "street": "Husova" }],
+      <span class="code-highlight">"subFacts": [...]</span>   <span class="code-comment">// nested tree</span>
+    }
+  ]
+}
+</pre>
+    </div>
+  </div>
+
+
+  <!-- ============================================================== -->
+  <!-- FLOW C: DOCUMENT SCRAPING (SBIRKA LISTIN)                       -->
+  <!-- ============================================================== -->
+  <div class="flow-divider" style="border-left: 3px solid var(--c-external);">
+    <h3 class="t-external">Pipeline C &mdash; Document Scraping (Sb&iacute;rka listin)</h3>
+    <p>When the frontend requests documents for an entity, the backend <em>live-scrapes</em> HTML from <code>or.justice.cz</code>, parses financial XML files inline, and proxies binary downloads.</p>
+  </div>
+
+  <div class="section-label t-backend">Backend &mdash; Live Scraping Pipeline</div>
+
+  <!-- Step C1: Service orchestration -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">C1</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/services.py &rarr; get_entity_documents()</div>
+        <div class="card-desc">Orchestrates a 3-step scraping pipeline: ICO &rarr; subjektId &rarr; document list &rarr; file details + inline financial XML parsing.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/services.py</span>
+<pre>
+def get_entity_documents(self, ico: str) -&gt; dict:
+    normalized = ico.zfill(8)
+
+    <span class="code-comment"># Check cache first (1 hour TTL)</span>
+    cached = self.cache.get("documents", normalized)
+    if cached is not None:
+        return cached
+
+    client = justice_sbirka_client
+
+    <span class="code-comment"># Step 1: ICO &rarr; subjektId (HTML scraping)</span>
+    subjekt_id = <span class="code-highlight">client.get_subjekt_id(normalized)</span>
+
+    <span class="code-comment"># Step 2: subjektId &rarr; document list (HTML table scraping)</span>
+    documents = <span class="code-highlight">client.get_document_list(subjekt_id)</span>
+
+    <span class="code-comment"># Step 3: For each document, get files + parse financial XML</span>
+    for doc in documents:
+        files = <span class="code-highlight">client.get_document_files(doc["documentId"], ...)</span>
+        doc["files"] = files
+
+        <span class="code-comment"># If XML financial file exists, download &amp; parse inline</span>
+        xml_file = next((f for f in files if f["isXml"]), None)
+        if xml_file:
+            content, _, _ = client.download_file(xml_file["downloadId"])
+            if b"&lt;UcetniZaverka" in content:
+                doc["financialData"] = <span class="code-highlight">parse_financial_xml(content)</span>
+</pre>
+      <div class="card-note">
+        <strong>Why live scraping?</strong> The Sb&iacute;rka listin (collection of documents) data is <em>not</em> available in the open data portal. It only exists on the <code>or.justice.cz</code> HTML website. So the backend scrapes the pages using regex, extracts document metadata, and when it finds financial XML files, downloads and parses them inline to provide structured financial data.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <div class="section-label t-external">External &mdash; or.justice.cz HTML Scraping</div>
+
+  <!-- Step C2: Sbirka Client -->
+  <div class="card border-external" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-external" style="opacity:.3"></div>
+      <div class="card-step bg-external">C2</div>
+      <div class="card-body">
+        <div class="card-file t-external">backend/justice/client.py &rarr; JusticeSbirkaClient</div>
+        <div class="card-desc">HTML scraper that navigates 3 pages on <code>or.justice.cz</code> using regex to extract document data. Also downloads PDF/XML files for proxying.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/client.py</span>
+<pre>
+class JusticeSbirkaClient:
+    def get_subjekt_id(self, ico: str) -&gt; str | None:
+        <span class="code-comment"># GET or.justice.cz/ias/ui/rejstrik-$firma?ico=12345678</span>
+        resp = self.session.get(url, params={"ico": ico})
+        <span class="code-comment"># Regex extract subjektId from the HTML response</span>
+        match = <span class="code-highlight">re.search(r"subjektId=(\d+)", resp.text)</span>
+        return match.group(1) if match else None
+
+    def get_document_list(self, subjekt_id: str) -&gt; list[dict]:
+        <span class="code-comment"># GET or.justice.cz/ias/ui/vypis-sl-firma?subjektId=...</span>
+        resp = self.session.get(url, params={"subjektId": subjekt_id})
+        return <span class="code-highlight">self._parse_document_table(resp.text)</span>
+        <span class="code-comment"># Regex parses HTML table rows into structured dicts</span>
+
+    def get_document_files(self, doc_id, subjekt_id, spis_id) -&gt; list[dict]:
+        <span class="code-comment"># GET or.justice.cz/ias/ui/vypis-sl-detail?dokument=...</span>
+        resp = self.session.get(url, params={...})
+        return <span class="code-highlight">self._parse_file_links(resp.text)</span>
+        <span class="code-comment"># Extracts download UUIDs, filenames, sizes from HTML links</span>
+
+    def download_file(self, download_id: str) -&gt; tuple[bytes, str, str]:
+        <span class="code-comment"># GET or.justice.cz/ias/content/download?id={uuid}</span>
+        <span class="code-comment"># Returns (content_bytes, content_type, filename)</span>
+</pre>
+      <div class="card-note">
+        <strong>Three-page scraping pipeline:</strong><br>
+        1. <strong>Search page</strong> &mdash; ICO &rarr; internal <code>subjektId</code> (regex on redirect URL)<br>
+        2. <strong>Document list page</strong> &mdash; subjektId &rarr; table of documents with IDs<br>
+        3. <strong>Document detail page</strong> &mdash; document &rarr; download links (PDF/XML files)<br><br>
+        The client uses <code>Mozilla/5.0</code> User-Agent to avoid being blocked.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step C3: Financial XML Parser -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">C3</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/parsers/financial_xml_parser.py</div>
+        <div class="card-desc">Parses Czech &uacute;&ccaron;etn&iacute; z&aacute;v&ecaron;rka (financial statement) XML files in EPO format. Extracts balance sheet (aktiva/pasiva) and income statement (VZZ) data.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/parsers/financial_xml_parser.py</span>
+<pre>
+<span class="code-comment"># EPO format XML structure:</span>
+<span class="code-comment"># &lt;UcetniZaverka&gt;</span>
+<span class="code-comment">#   &lt;VetaD&gt;    &mdash; metadata (period, currency, format)</span>
+<span class="code-comment">#   &lt;VetaUA&gt;   &mdash; Rozvaha AKTIVA (balance sheet assets)</span>
+<span class="code-comment">#   &lt;VetaUD&gt;   &mdash; Rozvaha PASIVA (liabilities/equity)</span>
+<span class="code-comment">#   &lt;VetaUB&gt;   &mdash; VZZ P&amp;L (income statement)</span>
+
+<span class="code-comment"># Row numbers are legally standardized (Vyhl&aacute;&scaron;ka 500/2002 Sb.)</span>
+VZZ_ROWS = {
+    1: "I. Tr&zcaron;by z prodeje v&yacute;robk&uacute; a slu&zcaron;eb",
+    2: "II. Tr&zcaron;by za prodej zbo&zcaron;&iacute;",
+    3: "A. V&yacute;konov&aacute; spot&rcaron;eba",
+    ...  <span class="code-comment"># 56 standardized line items</span>
+}
+
+def <span class="code-highlight">parse_financial_xml</span>(xml_bytes: bytes) -&gt; dict:
+    root = etree.fromstring(xml_bytes)
+    return {
+        "metadata": _parse_metadata(root),  <span class="code-comment"># period, format, currency</span>
+        <span class="code-highlight">"aktiva"</span>: _parse_section(root, "VetaUA", AKTIVA_ROWS),
+        <span class="code-highlight">"pasiva"</span>: _parse_section(root, "VetaUD", PASIVA_ROWS),
+        <span class="code-highlight">"vzz"</span>: _parse_section(root, "VetaUB", VZZ_ROWS),
+    }
+</pre>
+      <div class="card-note">
+        <strong>What this enables:</strong> Instead of showing users raw PDF files, the financial data is parsed into structured JSON with named line items. The frontend can render interactive balance sheets and income statements with current vs. previous period comparisons &mdash; all from legally standardized Czech accounting form row numbers.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step C4: Document Proxy -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">C4</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/justice/views.py &rarr; DocumentProxyView</div>
+        <div class="card-desc">Proxies PDF/XML downloads from <code>or.justice.cz</code>. Required because the justice.cz server needs session cookies that browsers can't set cross-origin.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/justice/views.py</span>
+<pre>
+@xframe_options_exempt
+class DocumentProxyView(APIView):
+    def get(self, request, download_id):
+        client = justice_sbirka_client
+
+        <span class="code-comment"># Download from or.justice.cz using server-side session</span>
+        content, content_type, filename = <span class="code-highlight">client.download_file(download_id)</span>
+
+        <span class="code-comment"># Forward as inline response (opens in browser)</span>
+        response = HttpResponse(content, content_type=content_type)
+        response["Content-Disposition"] = f'<span class="code-highlight">inline</span>; filename="{filename}"'
+        return response
+
+<span class="code-comment"># Why this exists:</span>
+<span class="code-comment"># Browser: GET /api/v1/justice/documents/{uuid}/</span>
+<span class="code-comment">#   &darr;</span>
+<span class="code-comment"># Django:  GET or.justice.cz/ias/content/download?id={uuid}</span>
+<span class="code-comment">#          (with server-side session cookies)</span>
+<span class="code-comment">#   &darr;</span>
+<span class="code-comment"># Browser: receives PDF/XML as if it came from our domain</span>
+</pre>
+      <div class="card-note">
+        <strong>CORS workaround:</strong> The browser can't directly download from <code>or.justice.cz</code> because of cross-origin restrictions and required session cookies. The proxy makes our Django server act as a middleman &mdash; it downloads the file server-side (where cookies work) and re-serves it to the browser from our own domain.
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.flow -->
+
+
+<!-- ====== ARCHITECTURE OVERVIEW ====== -->
+<div class="arch">
+  <h2>Justice Data Architecture</h2>
+  <p style="text-align:center; color:var(--c-muted); font-size:.85rem; margin-bottom:1.5rem;">
+    Three pipelines work together: batch sync fills the database, API queries read from it, and live scraping provides documents.
+  </p>
+  <div class="arch-grid">
+    <div class="arch-box" style="border-left:3px solid var(--c-sync)">
+      <div class="arch-name">justice_sync</div>
+      <div class="arch-detail">Management command<br>Cron / Kubernetes<br>Batch ingestion</div>
+    </div>
+    <div class="arch-box" style="border-left:3px solid var(--c-external)">
+      <div class="arch-name">dataor.justice.cz</div>
+      <div class="arch-detail">CKAN Open Data<br>XML.gz datasets<br>Rate limit: 5/min</div>
+    </div>
+    <div class="arch-box" style="border-left:3px solid var(--c-external)">
+      <div class="arch-name">or.justice.cz</div>
+      <div class="arch-detail">Court registry HTML<br>Sbirka listin<br>PDF/XML downloads</div>
+    </div>
+    <div class="arch-box" style="border-left:3px solid var(--c-backend)">
+      <div class="arch-name">Django</div>
+      <div class="arch-detail">9 API endpoints<br>2 service classes<br>4 parser modules</div>
+    </div>
+    <div class="arch-box" style="border-left:3px solid var(--c-database)">
+      <div class="arch-name">PostgreSQL</div>
+      <div class="arch-detail">Entity, EntityFact<br>Person, Address<br>DatasetSync</div>
+    </div>
+    <div class="arch-box" style="border-left:3px solid var(--c-cache)">
+      <div class="arch-name">Redis</div>
+      <div class="arch-detail">Entity: 1 hr<br>Search: 15 min<br>Documents: 1 hr</div>
+    </div>
+  </div>
+
+  <div style="margin-top:1.5rem; padding:1rem; background:#f9fafb; border-radius:8px; font-family:monospace; font-size:.78rem; line-height:1.7; overflow-x:auto; white-space:pre;"><span style="color:var(--c-sync);font-weight:700;">Pipeline A (Batch Sync):</span>
+  justice_sync (cron)
+    |
+    | JusticeCKANClient
+    v
+  dataor.justice.cz  &rarr;  .xml.gz stream
+    |
+    | xml_parser.parse_xml_stream()  (lxml iterparse + gzip)
+    v
+  JusticeSyncService._upsert_entity()
+    |
+    | transaction.atomic() + bulk_create
+    v
+  PostgreSQL  [Entity, EntityFact, Person, Address, DatasetSync]
+
+<span style="color:var(--c-backend);font-weight:700;">Pipeline B (API Query):</span>
+  GET /api/v1/justice/entities/?ico=12345678
+    |
+    v
+  Django (views &rarr; JusticeService)  &lt;---&gt;  Redis (cache)
+    |
+    | ORM query with select_related / prefetch_related
+    v
+  PostgreSQL  &rarr;  parser.py (model &rarr; camelCase)  &rarr;  JSON response
+
+<span style="color:var(--c-external);font-weight:700;">Pipeline C (Document Scraping):</span>
+  GET /api/v1/justice/entities/{ico}/documents/
+    |
+    v
+  JusticeSbirkaClient  &rarr;  or.justice.cz (3 HTML pages)
+    |
+    | regex scraping + financial XML parsing
+    v
+  JSON response (document list + inline financial data)
+    |
+  GET /api/v1/justice/documents/{uuid}/  &rarr;  proxy &rarr;  PDF/XML</div>
+
+  <div class="card-note" style="margin-top:1rem;">
+    <strong>Key architectural difference from ARES:</strong> ARES is a <em>pass-through</em> system &mdash; it calls the government API on every cache miss. Justice is a <em>data warehouse</em> &mdash; Pipeline A pre-loads all entity data into PostgreSQL, and Pipeline B serves it locally. Pipeline C is the only part that makes live external calls, and even those are cached for 1 hour.
+  </div>
+</div>
+
+<div style="margin-top:3rem; text-align:center; color:var(--c-muted); font-size:.78rem;">
+  <p>Click any step card to expand the code snippet.</p>
+</div>
+
+</div><!-- /#panel-justice -->
+
+
+<!-- ====== FOOTER ====== -->
+<div style="margin-top:3rem; text-align:center; color:var(--c-muted); font-size:.78rem;">
+  <p>Generated for the GTDN/RES project.</p>
+</div>
+
 
 <script>
 (function() {
+  // ---- Tab switching ----
+  var tabs = document.querySelectorAll('.tab-btn');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      var target = this.getAttribute('data-tab');
+
+      // Update tab buttons
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+
+      // Update panels
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('panel-' + target).classList.add('active');
+
+      // Update legends
+      document.getElementById('legend-ares').style.display = target === 'ares' ? '' : 'none';
+      document.getElementById('legend-justice').style.display = target === 'justice' ? '' : 'none';
+    });
+  });
+
+  // ---- Copy path buttons ----
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
   function createClipIcon() {

@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub-and-Spoke Architecture &mdash; Multi-Source Design</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --c-bg: #fafafa;
+    --c-text: #1a1a2e;
+    --c-muted: #6b7280;
+    --c-border: #e5e7eb;
+    --c-hub: #f59e0b;
+    --c-hub-bg: #fffbeb;
+    --c-hub-ring: #fbbf24;
+    --c-ares: #3b82f6;
+    --c-ares-bg: #eff6ff;
+    --c-justice: #8b5cf6;
+    --c-justice-bg: #f5f3ff;
+    --c-future: #10b981;
+    --c-future-bg: #ecfdf5;
+    --c-danger: #ef4444;
+    --c-danger-bg: #fef2f2;
+    --c-api: #06b6d4;
+    --c-api-bg: #ecfeff;
+    --c-frontend: #ec4899;
+    --c-frontend-bg: #fdf2f8;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,.08);
+    --shadow-xl: 0 8px 24px rgba(0,0,0,.12);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+    line-height: 1.6;
+    padding: 2rem 1rem 6rem;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  /* ---- Header ---- */
+  header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+  header h1 {
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: .35rem;
+  }
+  header .subtitle {
+    color: var(--c-muted);
+    font-size: .95rem;
+    max-width: 600px;
+    margin: 0 auto .75rem;
+  }
+  .badge {
+    display: inline-block;
+    padding: .2rem .7rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .badge-approved { background: #dcfce7; color: #166534; }
+  .badge-date { background: #e0e7ff; color: #3730a3; margin-left: .4rem; }
+
+  /* ---- Sections ---- */
+  section {
+    margin-bottom: 2.5rem;
+  }
+  section > h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 2px solid var(--c-border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  section > h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    background: var(--c-text);
+    color: #fff;
+    font-size: .75rem;
+    flex-shrink: 0;
+  }
+
+  /* ---- Cards ---- */
+  .card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 1rem; }
+  .card h3 {
+    font-size: .95rem;
+    font-weight: 600;
+    margin-bottom: .5rem;
+  }
+  .card p, .card li {
+    font-size: .88rem;
+    color: #374151;
+  }
+  .card ul {
+    padding-left: 1.2rem;
+  }
+  .card ul li {
+    margin-bottom: .25rem;
+  }
+
+  /* ---- Problem / Context ---- */
+  .silo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 600px) {
+    .silo-grid { grid-template-columns: 1fr; }
+  }
+  .silo-card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--c-border);
+    position: relative;
+  }
+  .silo-card.ares { border-top-color: var(--c-ares); }
+  .silo-card.justice { border-top-color: var(--c-justice); }
+  .silo-card .label {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: .4rem;
+  }
+  .silo-card.ares .label { color: var(--c-ares); }
+  .silo-card.justice .label { color: var(--c-justice); }
+  .silo-card p { font-size: .85rem; color: #374151; }
+  .silo-card .feature {
+    font-size: .78rem;
+    color: var(--c-muted);
+    margin-top: .3rem;
+  }
+  .problem-callout {
+    background: var(--c-danger-bg);
+    border: 1px solid #fecaca;
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+  }
+  .problem-callout .icon { font-size: 1.2rem; flex-shrink: 0; }
+  .problem-callout p { font-size: .85rem; color: #991b1b; }
+
+  /* ---- Hub & Spoke Diagram ---- */
+  .diagram-container {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    justify-content: center;
+    overflow: visible;
+  }
+  .hub-spoke {
+    position: relative;
+    width: 420px;
+    height: 340px;
+  }
+  @media (max-width: 500px) {
+    .hub-spoke { width: 300px; height: 280px; }
+  }
+
+  /* Hub */
+  .hub {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--c-hub-bg);
+    border: 3px solid var(--c-hub-ring);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 6px rgba(251,191,36,.15), var(--shadow-lg);
+    z-index: 2;
+    cursor: default;
+    transition: transform .3s, box-shadow .3s;
+  }
+  .hub:hover {
+    transform: translate(-50%, -50%) scale(1.08);
+    box-shadow: 0 0 0 10px rgba(251,191,36,.2), var(--shadow-xl);
+  }
+  .hub .hub-title {
+    font-size: .85rem;
+    font-weight: 700;
+    color: #92400e;
+  }
+  .hub .hub-key {
+    font-size: .65rem;
+    color: #b45309;
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    margin-top: .15rem;
+  }
+
+  /* Spokes */
+  .spoke {
+    position: absolute;
+    width: 100px;
+    padding: .7rem .5rem;
+    border-radius: 10px;
+    text-align: center;
+    z-index: 2;
+    cursor: default;
+    transition: transform .3s, box-shadow .3s;
+    box-shadow: var(--shadow);
+  }
+  .spoke:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-xl);
+  }
+  .spoke .spoke-name {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .spoke .spoke-model {
+    font-size: .65rem;
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    margin-top: .15rem;
+    opacity: .8;
+  }
+
+  .spoke.ares {
+    background: var(--c-ares-bg);
+    border: 2px solid var(--c-ares);
+    top: 30px; left: 20px;
+  }
+  .spoke.ares .spoke-name { color: var(--c-ares); }
+  .spoke.ares .spoke-model { color: #2563eb; }
+
+  .spoke.justice {
+    background: var(--c-justice-bg);
+    border: 2px solid var(--c-justice);
+    top: 30px; right: 20px;
+  }
+  .spoke.justice .spoke-name { color: var(--c-justice); }
+  .spoke.justice .spoke-model { color: #7c3aed; }
+
+  .spoke.trade {
+    background: var(--c-future-bg);
+    border: 2px dashed var(--c-future);
+    bottom: 10px; left: 10px;
+  }
+  .spoke.trade .spoke-name { color: var(--c-future); }
+  .spoke.trade .spoke-model { color: #059669; }
+
+  .spoke.isir {
+    background: var(--c-future-bg);
+    border: 2px dashed var(--c-future);
+    bottom: 10px; right: 10px;
+  }
+  .spoke.isir .spoke-name { color: var(--c-future); }
+  .spoke.isir .spoke-model { color: #059669; }
+
+  .spoke.more {
+    background: #f9fafb;
+    border: 2px dashed #d1d5db;
+    bottom: 10px; left: 50%; transform: translateX(-50%);
+    width: 70px;
+    padding: .5rem;
+  }
+  .spoke.more:hover { transform: translateX(-50%) scale(1.1); }
+  .spoke.more .spoke-name { color: var(--c-muted); font-size: .7rem; }
+
+  /* SVG connector lines */
+  .connectors {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .connectors line {
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+  }
+  .connectors line.solid {
+    stroke-dasharray: none;
+  }
+  .connector-ares { stroke: var(--c-ares); opacity: .5; }
+  .connector-justice { stroke: var(--c-justice); opacity: .5; }
+  .connector-future { stroke: var(--c-future); opacity: .35; }
+  .connector-muted { stroke: #d1d5db; opacity: .4; }
+
+  /* Animated pulse on connectors */
+  @keyframes dashFlow {
+    to { stroke-dashoffset: -20; }
+  }
+  .connectors line {
+    animation: dashFlow 1.5s linear infinite;
+  }
+  .connectors line.solid {
+    animation: none;
+  }
+
+  /* ---- Alternatives Comparison ---- */
+  .alt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 700px) {
+    .alt-grid { grid-template-columns: 1fr; }
+  }
+  .alt-card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .alt-card.chosen {
+    border-color: var(--c-hub-ring);
+    background: var(--c-hub-bg);
+  }
+  .alt-card.chosen::after {
+    content: "Chosen";
+    position: absolute;
+    top: -.5rem;
+    right: .75rem;
+    background: var(--c-hub);
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 700;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .alt-card h4 {
+    font-size: .82rem;
+    font-weight: 700;
+    margin-bottom: .4rem;
+  }
+  .alt-card p {
+    font-size: .78rem;
+    color: var(--c-muted);
+  }
+  .verdict {
+    margin-top: .5rem;
+    font-size: .72rem;
+    font-weight: 600;
+    padding: .2rem .5rem;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .verdict.good { background: #dcfce7; color: #166534; }
+  .verdict.bad { background: #fee2e2; color: #991b1b; }
+
+  /* ---- Data Model ---- */
+  .model-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 600px) {
+    .model-grid { grid-template-columns: 1fr; }
+  }
+  .model-card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .model-card .model-header {
+    padding: .65rem 1rem;
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .model-card.hub-model .model-header { background: var(--c-hub-bg); color: #92400e; border-bottom: 2px solid var(--c-hub-ring); }
+  .model-card.ares-model .model-header { background: var(--c-ares-bg); color: #1e40af; border-bottom: 2px solid var(--c-ares); }
+  .model-card.justice-model .model-header { background: var(--c-justice-bg); color: #5b21b6; border-bottom: 2px solid var(--c-justice); }
+  .model-card.unchanged-model .model-header { background: #f3f4f6; color: var(--c-muted); border-bottom: 2px solid var(--c-border); }
+
+  .model-card .model-body {
+    padding: .75rem 1rem;
+  }
+  .field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .25rem 0;
+    font-size: .78rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .field-row:last-child { border-bottom: none; }
+  .field-name {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+  .field-type {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: .72rem;
+    color: var(--c-muted);
+  }
+  .field-badge {
+    display: inline-block;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    font-size: .62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: .3rem;
+  }
+  .field-badge.new { background: #dcfce7; color: #166534; }
+  .field-badge.pk { background: #dbeafe; color: #1e40af; }
+  .field-badge.fk { background: #fce7f3; color: #9d174d; }
+  .field-badge.unique { background: #e0e7ff; color: #3730a3; }
+
+  /* ---- Service Layer ---- */
+  .service-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .flow-card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .flow-card .flow-header {
+    padding: .6rem 1rem;
+    font-size: .8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background .2s;
+  }
+  .flow-card .flow-header:hover { background: #f9fafb; }
+  .flow-card .flow-header .arrow {
+    transition: transform .3s;
+    font-size: .65rem;
+    color: var(--c-muted);
+  }
+  .flow-card .flow-header .arrow.open { transform: rotate(90deg); }
+  .flow-card .flow-body {
+    padding: 0 1rem 1rem;
+    display: none;
+  }
+  .flow-card .flow-body.open { display: block; }
+
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    position: relative;
+    padding-left: 1.5rem;
+  }
+  .flow-steps::before {
+    content: "";
+    position: absolute;
+    left: .45rem;
+    top: .5rem;
+    bottom: .5rem;
+    width: 2px;
+    background: var(--c-border);
+    border-radius: 1px;
+  }
+  .flow-step {
+    position: relative;
+    font-size: .8rem;
+    color: #374151;
+    padding: .3rem 0;
+  }
+  .flow-step::before {
+    content: "";
+    position: absolute;
+    left: -1.05rem;
+    top: .55rem;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c-hub);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px var(--c-hub-ring);
+  }
+  .flow-step code {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: .73rem;
+    background: #f3f4f6;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    color: #7c3aed;
+  }
+
+  /* ---- API Layer ---- */
+  .endpoint-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .82rem;
+    background: #fff;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .endpoint-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    text-align: left;
+    padding: .65rem .85rem;
+    border-bottom: 2px solid var(--c-border);
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--c-muted);
+  }
+  .endpoint-table td {
+    padding: .6rem .85rem;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: top;
+  }
+  .endpoint-table tr:last-child td { border-bottom: none; }
+  .method-badge {
+    display: inline-block;
+    padding: .15rem .4rem;
+    border-radius: 4px;
+    font-size: .7rem;
+    font-weight: 700;
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+  }
+  .method-get { background: #dbeafe; color: #1e40af; }
+  .path-code {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: .78rem;
+    color: var(--c-text);
+  }
+  .endpoint-new {
+    font-size: .6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    background: #dcfce7;
+    color: #166534;
+    margin-left: .4rem;
+  }
+  .endpoint-existing {
+    font-size: .6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    background: #f3f4f6;
+    color: var(--c-muted);
+    margin-left: .4rem;
+  }
+
+  /* ---- JSON Preview ---- */
+  .json-preview {
+    background: #1e1e2e;
+    border-radius: var(--radius);
+    padding: 1.2rem 1.5rem;
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: .75rem;
+    line-height: 1.7;
+    color: #cdd6f4;
+    overflow-x: auto;
+    box-shadow: var(--shadow-lg);
+    margin-top: 1rem;
+  }
+  .json-key { color: #89b4fa; }
+  .json-string { color: #a6e3a1; }
+  .json-bool { color: #fab387; }
+  .json-comment { color: #6c7086; font-style: italic; }
+  .json-brace { color: #f9e2af; }
+  .json-bracket { color: #cba6f7; }
+
+  /* ---- Migration Timeline ---- */
+  .timeline {
+    position: relative;
+    padding-left: 2rem;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: .75rem;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--c-hub-ring), var(--c-ares), var(--c-justice), var(--c-future));
+    border-radius: 2px;
+  }
+  .tl-item {
+    position: relative;
+    padding: .6rem 0;
+    padding-left: 1.2rem;
+  }
+  .tl-item::before {
+    content: "";
+    position: absolute;
+    left: -1.47rem;
+    top: .85rem;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--c-hub);
+    box-shadow: var(--shadow);
+    z-index: 1;
+  }
+  .tl-item:nth-child(1)::before { border-color: var(--c-hub); }
+  .tl-item:nth-child(2)::before { border-color: var(--c-hub-ring); }
+  .tl-item:nth-child(3)::before { border-color: var(--c-ares); }
+  .tl-item:nth-child(4)::before { border-color: var(--c-justice); }
+  .tl-item:nth-child(5)::before { border-color: var(--c-api); }
+  .tl-item:nth-child(6)::before { border-color: var(--c-frontend); }
+  .tl-item:nth-child(7)::before { border-color: var(--c-future); }
+  .tl-phase {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--c-muted);
+    margin-bottom: .15rem;
+  }
+  .tl-title {
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--c-text);
+  }
+  .tl-desc {
+    font-size: .78rem;
+    color: var(--c-muted);
+    margin-top: .15rem;
+  }
+  .tl-tag {
+    display: inline-block;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    font-size: .62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-top: .3rem;
+  }
+  .tl-tag.schema { background: #fef3c7; color: #92400e; }
+  .tl-tag.data { background: #dbeafe; color: #1e40af; }
+  .tl-tag.code { background: #ede9fe; color: #5b21b6; }
+  .tl-tag.ui { background: #fce7f3; color: #9d174d; }
+  .tl-tag.optional { background: #f3f4f6; color: var(--c-muted); }
+
+  /* ---- Future Pattern ---- */
+  .pattern-steps {
+    counter-reset: step;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+  .pattern-step {
+    counter-increment: step;
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: .75rem 1rem;
+    box-shadow: var(--shadow);
+    transition: transform .2s;
+  }
+  .pattern-step:hover { transform: translateX(4px); }
+  .pattern-step::before {
+    content: counter(step);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: var(--c-future);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: .1rem;
+  }
+  .pattern-step .step-text {
+    font-size: .82rem;
+    color: #374151;
+  }
+  .pattern-step code {
+    font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+    font-size: .73rem;
+    background: #f3f4f6;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    color: var(--c-future);
+  }
+
+  /* ---- Footer ---- */
+  footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--c-border);
+    font-size: .78rem;
+    color: var(--c-muted);
+  }
+
+  /* ---- Interactive Legend ---- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .72rem;
+    color: var(--c-muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .legend-line {
+    width: 20px;
+    height: 2px;
+    border-radius: 1px;
+  }
+  .legend-line.dashed {
+    background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px);
+  }
+
+  /* ---- Responsive JSON ---- */
+  .response-card {
+    background: #fff;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .response-card .response-header {
+    padding: .6rem 1rem;
+    background: #f9fafb;
+    border-bottom: 1px solid var(--c-border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--c-muted);
+  }
+  .response-card .response-header .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .response-card .response-header .dot.green { background: #22c55e; }
+
+  /* Callout */
+  .callout {
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    margin-top: 1rem;
+  }
+  .callout .icon { font-size: 1.1rem; flex-shrink: 0; }
+  .callout p { font-size: .82rem; }
+  .callout.success { background: var(--c-future-bg); border: 1px solid #a7f3d0; }
+  .callout.success p { color: #065f46; }
+</style>
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header>
+  <h1>Hub-and-Spoke Architecture</h1>
+  <p class="subtitle">Multi-source data architecture for Czech public registers, unifying company data through a shared hub model keyed by ICO &mdash; with denormalized search fields for cross-source multi-parameter filtering.</p>
+  <div>
+    <span class="badge badge-approved">Approved</span>
+    <span class="badge badge-date">2026-02-27</span>
+  </div>
+</header>
+
+<!-- ===== 1. Current Problem ===== -->
+<section>
+  <h2><span class="num">1</span> The Problem: Isolated Data Silos</h2>
+
+  <div class="silo-grid">
+    <div class="silo-card ares">
+      <div class="label">ARES</div>
+      <p><strong>Real-time API</strong> fetches cached only in Redis (volatile)</p>
+      <p class="feature">EconomicSubject model exists but is never populated. Every Redis expiry repeats the same rate-limited API call.</p>
+    </div>
+    <div class="silo-card justice">
+      <div class="label">Justice</div>
+      <p><strong>Bulk XML sync</strong> into PostgreSQL</p>
+      <p class="feature">6 models: Entity, EntityFact, Person, Address, CourtRecord, DatasetSync</p>
+    </div>
+  </div>
+
+  <div class="problem-callout">
+    <span class="icon">&#9888;</span>
+    <p><strong>No shared entity links the two sources.</strong> As more Czech public registers are added (Trade Register, ISIR, RES, ISVZ&hellip;), each new source would create another isolated silo without a unifying structure.</p>
+  </div>
+</section>
+
+<!-- ===== 2. The Solution: Hub & Spoke ===== -->
+<section>
+  <h2><span class="num">2</span> The Solution: Hub &amp; Spoke</h2>
+
+  <div class="diagram-container">
+    <div class="hub-spoke" id="hubDiagram">
+      <!-- SVG connectors -->
+      <svg class="connectors" viewBox="0 0 420 340">
+        <!-- ARES to hub -->
+        <line class="connector-ares solid" x1="70" y1="90" x2="170" y2="145"/>
+        <!-- Justice to hub -->
+        <line class="connector-justice solid" x1="350" y1="90" x2="250" y2="145"/>
+        <!-- Trade to hub -->
+        <line class="connector-future" x1="60" y1="270" x2="175" y2="200"/>
+        <!-- ISIR to hub -->
+        <line class="connector-future" x1="360" y1="270" x2="245" y2="200"/>
+        <!-- More to hub -->
+        <line class="connector-muted" x1="210" y1="298" x2="210" y2="225"/>
+      </svg>
+
+      <!-- Hub node -->
+      <div class="hub" style="width:140px;height:140px;">
+        <div class="hub-title">Company</div>
+        <div class="hub-key">PK: ICO</div>
+        <div class="hub-key" style="font-size:.55rem;margin-top:.1rem;opacity:.7">+ search fields</div>
+      </div>
+
+      <!-- Spoke nodes -->
+      <div class="spoke ares">
+        <div class="spoke-name">ARES</div>
+        <div class="spoke-model">EconomicSubject</div>
+      </div>
+      <div class="spoke justice">
+        <div class="spoke-name">Justice</div>
+        <div class="spoke-model">Entity</div>
+      </div>
+      <div class="spoke trade">
+        <div class="spoke-name">Trade Reg.</div>
+        <div class="spoke-model">future</div>
+      </div>
+      <div class="spoke isir">
+        <div class="spoke-name">ISIR</div>
+        <div class="spoke-model">future</div>
+      </div>
+      <div class="spoke more">
+        <div class="spoke-name">+ more</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--c-hub-ring)"></div>
+      Hub (identity anchor)
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--c-ares)"></div>
+      Active spoke
+    </div>
+    <div class="legend-item">
+      <div class="legend-line dashed" style="color:var(--c-future)"></div>
+      Future spoke
+    </div>
+  </div>
+</section>
+
+<!-- ===== 3. Why Not Alternatives? ===== -->
+<section>
+  <h2><span class="num">3</span> Why This Approach?</h2>
+
+  <div class="alt-grid">
+    <div class="alt-card">
+      <h4>Unified Canonical Model</h4>
+      <p>A "fat" Company with all fields from all sources merged into one.</p>
+      <span class="verdict bad">Over-engineered</span>
+      <p style="margin-top:.4rem;font-size:.73rem;color:var(--c-muted)">Complex merge logic from day 1. Multi-parameter search only needs ~6 fields, not ~100+.</p>
+    </div>
+    <div class="alt-card chosen">
+      <h4>Hub-and-Spoke + Every-Touch-Persists</h4>
+      <p>Lightweight Company hub (ICO key) with denormalized search fields. Each source stores its own models as spokes via FK. Every API interaction persists to DB (3-tier: Redis &rarr; DB &rarr; API).</p>
+      <span class="verdict good">Just right</span>
+      <p style="margin-top:.4rem;font-size:.73rem;color:#92400e">DB grows organically from usage. Stale records served instantly with background refresh. Reduces rate-limited API calls over time.</p>
+    </div>
+    <div class="alt-card">
+      <h4>No Hub / Query-Time Join</h4>
+      <p>No central entity. Join across sources on-the-fly at query time.</p>
+      <span class="verdict bad">N+1 complexity</span>
+      <p style="margin-top:.4rem;font-size:.73rem;color:var(--c-muted)">Cross-source filtering (ARES region + Justice revenue) requires in-Python intersection &mdash; impossible to paginate.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 4. Data Model ===== -->
+<section>
+  <h2><span class="num">4</span> Data Model Changes</h2>
+
+  <div class="model-grid">
+    <!-- Company (new) -->
+    <div class="model-card hub-model">
+      <div class="model-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Company <span style="font-weight:400;opacity:.7">(new app)</span>
+      </div>
+      <div class="model-body">
+        <div style="font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#92400e;margin-bottom:.3rem;opacity:.7">Identity (Phase 1)</div>
+        <div class="field-row"><span class="field-name">ico</span><span><span class="field-type">CharField(8)</span><span class="field-badge unique">unique</span></span></div>
+        <div class="field-row"><span class="field-name">name</span><span class="field-type">CharField(500)</span></div>
+        <div class="field-row"><span class="field-name">is_active</span><span class="field-type">BooleanField</span></div>
+        <div class="field-row"><span class="field-name">created_at</span><span class="field-type">DateTimeField</span></div>
+        <div class="field-row"><span class="field-name">updated_at</span><span class="field-type">DateTimeField</span></div>
+        <div style="font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#92400e;margin:.5rem 0 .3rem;opacity:.7;border-top:1px dashed #e5e7eb;padding-top:.5rem">Search Fields (Phase 2)</div>
+        <div class="field-row"><span class="field-name">legal_form</span><span><span class="field-type">CharField(10)</span><span class="field-badge new">idx</span></span></div>
+        <div class="field-row"><span class="field-name">region_code</span><span><span class="field-type">IntegerField?</span><span class="field-badge new">idx</span></span></div>
+        <div class="field-row"><span class="field-name">region_name</span><span class="field-type">CharField(100)</span></div>
+        <div class="field-row"><span class="field-name">employee_category</span><span><span class="field-type">CharField(50)</span><span class="field-badge new">idx</span></span></div>
+        <div class="field-row"><span class="field-name">latest_revenue</span><span><span class="field-type">Decimal(15,2)?</span><span class="field-badge new">idx</span></span></div>
+        <div class="field-row"><span class="field-name">nace_primary</span><span><span class="field-type">CharField(10)</span><span class="field-badge new">idx</span></span></div>
+      </div>
+    </div>
+
+    <!-- Justice Entity (modified) -->
+    <div class="model-card justice-model">
+      <div class="model-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Justice Entity <span style="font-weight:400;opacity:.7">(modified)</span>
+      </div>
+      <div class="model-body">
+        <div class="field-row"><span class="field-name">company</span><span><span class="field-type">FK &rarr; Company</span><span class="field-badge fk">FK</span><span class="field-badge new">new</span></span></div>
+        <div class="field-row"><span class="field-name">ico</span><span><span class="field-type">CharField</span></span></div>
+        <div class="field-row"><span class="field-name">dataset_id</span><span class="field-type">CharField</span></div>
+        <div class="field-row" style="color:var(--c-muted);font-size:.72rem;font-style:italic">&hellip; other existing fields unchanged</div>
+      </div>
+    </div>
+
+    <!-- ARES EconomicSubject (modified) -->
+    <div class="model-card ares-model">
+      <div class="model-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        ARES EconomicSubject <span style="font-weight:400;opacity:.7">(modified)</span>
+      </div>
+      <div class="model-body">
+        <div class="field-row"><span class="field-name">company</span><span><span class="field-type">FK &rarr; Company</span><span class="field-badge fk">FK</span><span class="field-badge new">new</span></span></div>
+        <div class="field-row"><span class="field-name">ico</span><span><span class="field-type">CharField</span></span></div>
+        <div class="field-row"><span class="field-name">business_name</span><span class="field-type">CharField</span></div>
+        <div class="field-row"><span class="field-name">raw_data</span><span class="field-type">JSONField</span></div>
+        <div style="border-top:1px dashed var(--c-border);margin:.4rem 0;padding-top:.4rem">
+          <div style="font-size:.65rem;font-weight:600;color:var(--c-muted);margin-bottom:.25rem">FRESHNESS TRACKING</div>
+        </div>
+        <div class="field-row"><span class="field-name">created_at</span><span><span class="field-type">DateTimeField</span><span class="field-badge new">new</span></span></div>
+        <div class="field-row"><span class="field-name">updated_at</span><span><span class="field-type">DateTimeField</span><span class="field-badge new">new</span></span></div>
+        <div style="font-size:.68rem;color:var(--c-muted);margin-top:.3rem;font-style:italic"><code>updated_at</code> drives 3-tier freshness check (stale if &gt; 24h)</div>
+      </div>
+    </div>
+
+    <!-- Unchanged models -->
+    <div class="model-card unchanged-model">
+      <div class="model-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Unchanged Models
+      </div>
+      <div class="model-body">
+        <div class="field-row"><span class="field-name">EntityFact</span><span class="field-type">FK &rarr; Entity</span></div>
+        <div class="field-row"><span class="field-name">Person</span><span class="field-type">FK &rarr; Entity</span></div>
+        <div class="field-row"><span class="field-name">Address</span><span class="field-type">FK &rarr; Entity</span></div>
+        <div class="field-row"><span class="field-name">CourtRecord</span><span class="field-type">FK &rarr; Entity</span></div>
+        <div class="field-row"><span class="field-name">DatasetSync</span><span class="field-type">standalone</span></div>
+        <div style="font-size:.72rem;color:var(--c-muted);margin-top:.4rem;font-style:italic">Still FK to Entity, which now has a path to Company</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 5. Service Layer ===== -->
+<section>
+  <h2><span class="num">5</span> Service Layer</h2>
+
+  <div class="service-flow">
+    <!-- Justice Sync -->
+    <div class="flow-card">
+      <div class="flow-header" onclick="toggleFlow(this)">
+        <span class="arrow">&#9654;</span>
+        <span style="color:var(--c-justice)">JusticeSyncService._upsert_entity()</span>
+        <span style="font-weight:400;color:var(--c-muted);font-size:.72rem">&mdash; Bulk import flow</span>
+      </div>
+      <div class="flow-body">
+        <div class="flow-steps">
+          <div class="flow-step">Parse ICO from XML <code>subjekt</code> node</div>
+          <div class="flow-step"><code>Company.objects.get_or_create(ico=ico)</code> &mdash; find or create hub record</div>
+          <div class="flow-step">Set <code>name</code> and <code>is_active</code> from subjekt data</div>
+          <div class="flow-step">Phase 2: Set <code>legal_form</code> on Company if not already set by ARES</div>
+          <div class="flow-step"><code>Entity.objects.create(company=company, ...)</code> &mdash; link spoke</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARES Service — 3-tier lookup -->
+    <div class="flow-card">
+      <div class="flow-header" onclick="toggleFlow(this)">
+        <span class="arrow">&#9654;</span>
+        <span style="color:var(--c-ares)">AresService.get_by_ico()</span>
+        <span style="font-weight:400;color:var(--c-muted);font-size:.72rem">&mdash; 3-tier lookup: Redis &rarr; DB &rarr; API</span>
+      </div>
+      <div class="flow-body">
+        <div class="flow-steps">
+          <div class="flow-step"><strong>L1: Redis</strong> &mdash; check hot cache (existing behavior)</div>
+          <div class="flow-step"><strong>L2: DB</strong> &mdash; <code>EconomicSubject.objects.filter(ico=normalized)</code> &mdash; if found with raw_data, parse and return immediately</div>
+          <div class="flow-step">If L2 hit but <strong>stale</strong> (&gt;24h): trigger <code>_schedule_background_refresh()</code> via daemon thread (non-blocking)</div>
+          <div class="flow-step"><strong>L3: ARES API</strong> &mdash; rate-limited fetch, parse, persist via <code>_persist_detail()</code></div>
+          <div class="flow-step"><code>_persist_detail()</code>: <code>Company.objects.update_or_create()</code> with search fields + <code>EconomicSubject.objects.update_or_create()</code></div>
+          <div class="flow-step">Phase 2: Populates <code>legal_form</code>, <code>region_code</code>, <code>employee_category</code>, <code>nace_primary</code></div>
+          <div class="flow-step">Redis cache always updated on any fetch (L2 or L3)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARES Search persistence -->
+    <div class="flow-card">
+      <div class="flow-header" onclick="toggleFlow(this)">
+        <span class="arrow">&#9654;</span>
+        <span style="color:var(--c-ares)">AresService.search()</span>
+        <span style="font-weight:400;color:var(--c-muted);font-size:.72rem">&mdash; Every-touch-persists</span>
+      </div>
+      <div class="flow-body">
+        <div class="flow-steps">
+          <div class="flow-step">Existing: check Redis cache &rarr; throttle &rarr; call ARES search API &rarr; parse</div>
+          <div class="flow-step"><strong>NEW:</strong> <code>_persist_search_results()</code> &mdash; for each entity in results:</div>
+          <div class="flow-step">&nbsp;&nbsp;<code>Company.objects.get_or_create(ico=...)</code> &mdash; creates hub record (does NOT overwrite detail data)</div>
+          <div class="flow-step">&nbsp;&nbsp;<code>EconomicSubject.objects.update_or_create(ico=...)</code> &mdash; saves summary raw_data</div>
+          <div class="flow-step">Redis cache for individual subjects (existing behavior preserved)</div>
+          <div class="flow-step">DB grows organically from every search &mdash; enriches local search for sales team</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CompanyService -->
+    <div class="flow-card">
+      <div class="flow-header" onclick="toggleFlow(this)">
+        <span class="arrow">&#9654;</span>
+        <span style="color:var(--c-hub)">CompanyService.get_by_ico()</span>
+        <span style="font-weight:400;color:var(--c-muted);font-size:.72rem">&mdash; Unified lookup (new)</span>
+      </div>
+      <div class="flow-body">
+        <div class="flow-steps">
+          <div class="flow-step"><code>Company.objects.get(ico=ico.zfill(8))</code> &mdash; find hub</div>
+          <div class="flow-step">Collect <code>company.ares_records.first()</code></div>
+          <div class="flow-step">Collect <code>company.justice_entities.select_related().prefetch_related("facts").first()</code></div>
+          <div class="flow-step">Return unified dict: <code>{ "company", "ares", "justice" }</code></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CompanyService.search() -->
+    <div class="flow-card">
+      <div class="flow-header" onclick="toggleFlow(this)">
+        <span class="arrow">&#9654;</span>
+        <span style="color:var(--c-hub)">CompanyService.search()</span>
+        <span style="font-weight:400;color:var(--c-muted);font-size:.72rem">&mdash; Multi-parameter search (Phase 2)</span>
+      </div>
+      <div class="flow-body">
+        <div class="flow-steps">
+          <div class="flow-step">Start with <code>Company.objects.all()</code></div>
+          <div class="flow-step">Apply filters: <code>legal_form</code>, <code>region_code</code>, <code>employee_category</code>, revenue range, NACE, status</div>
+          <div class="flow-step">Single-table query &mdash; all filters on indexed Company columns, <strong>no JOINs</strong></div>
+          <div class="flow-step">Paginate with <code>offset</code> / <code>limit</code>, order by <code>-latest_revenue</code></div>
+          <div class="flow-step">Return list of <code>CompanySummary</code> dicts with search field values</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 6. API Layer ===== -->
+<section>
+  <h2><span class="num">6</span> API Endpoints</h2>
+
+  <table class="endpoint-table">
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="method-badge method-get">GET</span></td>
+        <td><span class="path-code">/api/v1/companies/{ico}/</span><span class="endpoint-new">new</span></td>
+        <td>Unified company detail (hub + all sources)</td>
+      </tr>
+      <tr>
+        <td><span class="method-badge method-get">GET</span></td>
+        <td><span class="path-code">/api/v1/companies/search/</span><span class="endpoint-new">phase 2</span></td>
+        <td>Multi-parameter search (legal form, region, employees, revenue, NACE)</td>
+      </tr>
+      <tr>
+        <td><span class="method-badge method-get">GET</span></td>
+        <td><span class="path-code">/api/v1/ares/</span><span class="endpoint-existing">unchanged</span></td>
+        <td>ARES lookup (existing)</td>
+      </tr>
+      <tr>
+        <td><span class="method-badge method-get">GET</span></td>
+        <td><span class="path-code">/api/v1/justice/</span><span class="endpoint-existing">unchanged</span></td>
+        <td>Justice lookup (existing)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- JSON response shape -->
+  <div class="response-card" style="margin-top:1rem">
+    <div class="response-header">
+      <span class="dot green"></span>
+      Response shape &mdash; <code style="font-size:.72rem">/api/v1/companies/{ico}/</code>
+    </div>
+    <div class="json-preview">
+<span class="json-brace">{</span>
+  <span class="json-key">"ico"</span>: <span class="json-string">"12345678"</span>,
+  <span class="json-key">"name"</span>: <span class="json-string">"Example s.r.o."</span>,
+  <span class="json-key">"isActive"</span>: <span class="json-bool">true</span>,
+  <span class="json-key">"sources"</span>: <span class="json-brace">{</span>
+    <span class="json-key">"ares"</span>: <span class="json-brace">{</span> <span class="json-key">"businessName"</span>: <span class="json-string">"..."</span>, <span class="json-key">"headquarters"</span>: <span class="json-brace">{</span>...<span class="json-brace">}</span> <span class="json-brace">}</span>,
+    <span class="json-key">"justice"</span>: <span class="json-brace">{</span> <span class="json-key">"name"</span>: <span class="json-string">"..."</span>, <span class="json-key">"facts"</span>: <span class="json-bracket">[</span>...<span class="json-bracket">]</span> <span class="json-brace">}</span>
+  <span class="json-brace">}</span>,
+  <span class="json-key">"updatedAt"</span>: <span class="json-string">"2026-02-27T12:00:00Z"</span>
+<span class="json-brace">}</span>
+    </div>
+  </div>
+
+  <!-- Search JSON response shape -->
+  <div class="response-card" style="margin-top:1rem">
+    <div class="response-header">
+      <span class="dot green"></span>
+      Response shape &mdash; <code style="font-size:.72rem">/api/v1/companies/search/?legalForm=112&amp;regionCode=19&amp;employeeCategory=10-19&amp;revenueMin=1000000</code>
+    </div>
+    <div class="json-preview">
+<span class="json-brace">{</span>
+  <span class="json-key">"totalCount"</span>: <span class="json-bool">142</span>,
+  <span class="json-key">"offset"</span>: <span class="json-bool">0</span>,
+  <span class="json-key">"limit"</span>: <span class="json-bool">25</span>,
+  <span class="json-key">"companies"</span>: <span class="json-bracket">[</span><span class="json-brace">{</span>
+    <span class="json-key">"ico"</span>: <span class="json-string">"12345678"</span>,
+    <span class="json-key">"name"</span>: <span class="json-string">"Example s.r.o."</span>,
+    <span class="json-key">"isActive"</span>: <span class="json-bool">true</span>,
+    <span class="json-key">"legalForm"</span>: <span class="json-string">"112"</span>,
+    <span class="json-key">"regionCode"</span>: <span class="json-bool">19</span>,
+    <span class="json-key">"regionName"</span>: <span class="json-string">"Hlavn&iacute; m&#283;sto Praha"</span>,
+    <span class="json-key">"employeeCategory"</span>: <span class="json-string">"10-19"</span>,
+    <span class="json-key">"latestRevenue"</span>: <span class="json-string">"5234000.00"</span>,
+    <span class="json-key">"nacePrimary"</span>: <span class="json-string">"62010"</span>
+  <span class="json-brace">}</span><span class="json-bracket">]</span>
+<span class="json-brace">}</span>
+    </div>
+  </div>
+
+  <div class="callout success" style="margin-top:1rem">
+    <span class="icon">&#9889;</span>
+    <p><strong>Sales use case:</strong> "Give me all s.r.o. companies in Prague with 10-19 employees and revenue over 1M CZK" &mdash; a single PostgreSQL query on indexed Company columns, no cross-table JOINs needed.</p>
+  </div>
+</section>
+
+<!-- ===== 7. Migration Strategy ===== -->
+<section>
+  <h2><span class="num">7</span> Migration Strategy</h2>
+
+  <p style="font-size:.85rem;color:var(--c-muted);margin-bottom:1rem">Each phase is independently deployable with no destructive changes.</p>
+
+  <p style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-hub);margin-bottom:.5rem">Phase 1: Hub-and-Spoke Foundation (Tasks 1&ndash;11)</p>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-phase">Step 1</div>
+      <div class="tl-title">Create <code>company</code> app + Company model</div>
+      <div class="tl-desc">New Django app, new migration. Identity fields only.</div>
+      <span class="tl-tag schema">schema</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Step 2</div>
+      <div class="tl-title">Add nullable <code>company</code> FK + timestamps</div>
+      <div class="tl-desc">Add FK to Entity and EconomicSubject. Add <code>created_at</code>/<code>updated_at</code> to EconomicSubject for freshness tracking. Nullable FKs during migration.</div>
+      <span class="tl-tag schema">schema</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Step 3</div>
+      <div class="tl-title">Backfill Company records</div>
+      <div class="tl-desc">Data migration: one Company per unique ICO from Justice entities, link FKs.</div>
+      <span class="tl-tag data">data migration</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Step 4</div>
+      <div class="tl-title">Update services + API + Frontend</div>
+      <div class="tl-desc">Justice sync creates Company during import. ARES becomes 3-tier lookup (Redis &rarr; DB &rarr; API) with background refresh for stale records. Search results persist to DB. New <code>/companies/[ico]</code> page.</div>
+      <span class="tl-tag code">code</span> <span class="tl-tag ui">frontend</span>
+    </div>
+  </div>
+
+  <p style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-hub);margin:1.5rem 0 .5rem">Phase 2: Search Hub Fields (Tasks 12&ndash;17)</p>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-phase">Step 5</div>
+      <div class="tl-title">Add search columns to Company</div>
+      <div class="tl-desc">Migration adds <code>legal_form</code>, <code>region_code</code>, <code>region_name</code>, <code>employee_category</code>, <code>latest_revenue</code>, <code>nace_primary</code> + composite index.</div>
+      <span class="tl-tag schema">schema</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Step 6</div>
+      <div class="tl-title">Populate search fields from ARES</div>
+      <div class="tl-desc"><code>_persist_detail()</code> extracts region, employees, NACE, legal form from ARES API response.</div>
+      <span class="tl-tag code">code</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Step 7</div>
+      <div class="tl-title">Populate search fields from Justice</div>
+      <div class="tl-desc"><code>_upsert_entity()</code> writes <code>legal_form</code>. Financial XML parse writes <code>latest_revenue</code>.</div>
+      <span class="tl-tag code">code</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Step 8</div>
+      <div class="tl-title">Search endpoint + frontend</div>
+      <div class="tl-desc"><code>CompanySearchView</code> with multi-parameter filtering. <code>/companies/search</code> page with filter sidebar.</div>
+      <span class="tl-tag code">code</span> <span class="tl-tag ui">frontend</span>
+    </div>
+  </div>
+
+  <p style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-muted);margin:1.5rem 0 .5rem">Phase 3: Scaling (future, if needed)</p>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-phase">Future</div>
+      <div class="tl-title">Replace threading with Celery</div>
+      <div class="tl-desc">Background refresh becomes a robust task with retries, monitoring, and dead-letter queue.</div>
+      <span class="tl-tag optional">optional</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Future</div>
+      <div class="tl-title">Composite GIN index or materialized view</div>
+      <div class="tl-desc">If search volume exceeds what B-tree indexes can handle.</div>
+      <span class="tl-tag optional">optional</span>
+    </div>
+    <div class="tl-item">
+      <div class="tl-phase">Future</div>
+      <div class="tl-title">Elasticsearch</div>
+      <div class="tl-desc">Only if full-text/fuzzy search needed on 1M+ records.</div>
+      <span class="tl-tag optional">optional</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 8. Adding Future Sources ===== -->
+<section>
+  <h2><span class="num">8</span> Adding Future Sources</h2>
+
+  <p style="font-size:.85rem;color:var(--c-muted);margin-bottom:1rem">Repeatable pattern for any new Czech public register:</p>
+
+  <div class="pattern-steps">
+    <div class="pattern-step">
+      <div class="step-text">Create a new Django app (e.g. <code>trade_register</code>)</div>
+    </div>
+    <div class="pattern-step">
+      <div class="step-text">Define source-specific model with <code>company = ForeignKey("company.Company")</code></div>
+    </div>
+    <div class="pattern-step">
+      <div class="step-text">Implement fetcher &mdash; bulk sync or real-time API, depending on source</div>
+    </div>
+    <div class="pattern-step">
+      <div class="step-text">In fetch/sync code: <code>Company.objects.get_or_create(ico=...)</code> then link</div>
+    </div>
+    <div class="pattern-step">
+      <div class="step-text">If the source provides new searchable data (e.g. ISIR insolvency status), add a denormalized field to <code>Company</code> and populate during fetch/sync</div>
+    </div>
+    <div class="pattern-step">
+      <div class="step-text">Add source data to <code>CompanyService</code> and <code>CompanyDetailView</code></div>
+    </div>
+  </div>
+
+  <div class="callout success">
+    <span class="icon">&#10003;</span>
+    <p><strong>No changes to existing spokes needed.</strong> Each new source is purely additive &mdash; new search fields on Company are additive migrations, and the hub-and-spoke pattern ensures total isolation between sources.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Hub-and-Spoke Multi-Source Data Architecture &bull; RES Project &bull; 2026-02-27</p>
+</footer>
+
+<script>
+function toggleFlow(header) {
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('.arrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+// Auto-open the first flow card
+document.addEventListener('DOMContentLoaded', () => {
+  const firstHeader = document.querySelector('.flow-card .flow-header');
+  if (firstHeader) toggleFlow(firstHeader);
+});
+</script>
+</body>
+</html>

@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Create a shared Company hub model that links ARES and Justice data via ICO, enabling unified company lookups across data sources.
+**Goal:** Create a shared Company hub model that links ARES and Justice data via ICO, enabling unified company lookups and cross-source multi-parameter search (legal form, region, employees, revenue) for the sales team.
 
-**Architecture:** New `company` Django app with a lightweight Company model (ICO, name, is_active). Both Justice Entity and ARES EconomicSubject get nullable FKs to Company. Services updated to create/link Company records during sync/fetch. New `/api/v1/companies/` endpoints serve unified data.
+**Architecture:** New `company` Django app with a Company model. Phase 1: identity fields (ICO, name, is_active) + FK linking from spokes + every-touch-persists (3-tier lookup: Redis → DB → API, background refresh for stale records, search results persisted to DB). Phase 2: denormalized search fields (legal_form, region_code, employee_category, latest_revenue, nace_primary) populated from ARES/Justice during fetch/sync. New `/api/v1/companies/` endpoints serve unified detail and multi-parameter search.
 
 **Tech Stack:** Django 5.x, Django REST Framework, PostgreSQL, Redis, React/Next.js, TypeScript, React Query
 
@@ -254,7 +254,7 @@ git commit -m "feat(justice): add nullable Company FK to Entity model"
 
 ---
 
-### Task 3: Add Company FK to ARES EconomicSubject
+### Task 3: Add Company FK + timestamps to ARES EconomicSubject
 
 **Files:**
 - Modify: `backend/ares/models.py`
@@ -294,6 +294,14 @@ class TestAresEconomicSubjectCompanyFK:
             ico="27082440", business_name="Alza.cz a.s.", company=company,
         )
         assert company.ares_records.count() == 1
+
+    def test_ares_record_has_timestamps(self):
+        """Timestamps needed for 3-tier lookup freshness check."""
+        record = EconomicSubject.objects.create(
+            ico="27082440", business_name="Alza.cz a.s.",
+        )
+        assert record.created_at is not None
+        assert record.updated_at is not None
 ```
 
 **Step 2: Run test to verify it fails**
@@ -301,7 +309,7 @@ class TestAresEconomicSubjectCompanyFK:
 Run: `cd backend && python -m pytest company/tests/test_ares_fk.py -v`
 Expected: FAIL with `TypeError: EconomicSubject() got an unexpected keyword argument 'company'`
 
-**Step 3: Add company FK to EconomicSubject**
+**Step 3: Add company FK + timestamps to EconomicSubject**
 
 Replace `backend/ares/models.py` content:
 
@@ -320,10 +328,14 @@ class EconomicSubject(models.Model):
         null=True,
         blank=True,
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.ico} - {self.business_name}"
 ```
+
+**Note:** `updated_at` is used by the 3-tier lookup freshness check — it records when the record was last fetched from ARES.
 
 **Step 4: Generate migration and run tests**
 
@@ -343,7 +355,7 @@ Expected: All existing tests PASS.
 
 ```bash
 git add backend/ares/models.py backend/ares/migrations/ backend/company/tests/
-git commit -m "feat(ares): add nullable Company FK to EconomicSubject model"
+git commit -m "feat(ares): add Company FK + timestamps to EconomicSubject model"
 ```
 
 ---
@@ -649,22 +661,42 @@ git commit -m "feat(justice): create Company hub record during entity sync"
 
 ---
 
-### Task 6: Update AresService to persist EconomicSubject + link Company
+### Task 6: Update AresService — 3-tier lookup, search persistence, background refresh
+
+This is the core "every-touch-persists" task. Changes to `AresService`:
+1. `get_by_ico()` becomes a 3-tier lookup: Redis → DB → API
+2. `search()` persists each result to DB (Company + EconomicSubject)
+3. Stale DB records trigger a non-blocking background refresh
+4. New constant: `ARES_DB_FRESHNESS_TTL`
 
 **Files:**
 - Modify: `backend/ares/services.py`
+- Modify: `backend/ares/constants.py`
 - Modify: `backend/ares/tests/test_services.py`
 
-**Step 1: Write the failing test**
+**Step 1: Add freshness constant**
+
+In `backend/ares/constants.py`, add:
+
+```python
+from datetime import timedelta
+
+ARES_DB_FRESHNESS_TTL = timedelta(hours=24)
+```
+
+**Step 2: Write the failing tests**
 
 Add to `backend/ares/tests/test_services.py`:
 
 ```python
-# Add import at top:
+# Add imports at top:
+from datetime import timedelta
+from unittest.mock import patch
+from django.utils import timezone
 from company.models import Company
 from ares.models import EconomicSubject
 
-# Add test class at end of file:
+# Add test classes at end of file:
 
 @pytest.mark.django_db
 class TestAresServicePersistence:
@@ -714,38 +746,146 @@ class TestAresServicePersistence:
 
         service = AresService(client=mock_client)
 
-        with patch("ares.services.Company.objects") as mock_company:
-            mock_company.get_or_create.side_effect = Exception("DB down")
+        with patch("ares.services._get_company_model") as mock_get:
+            mock_get.return_value.objects.update_or_create.side_effect = Exception("DB down")
             result = service.get_by_ico("27082440")
 
-        # Response still returned from cache/API.
+        # Response still returned from API.
         assert result["icoId"] == "27082440"
-        # But no DB record created.
-        assert EconomicSubject.objects.count() == 0
+
+
+@pytest.mark.django_db
+class TestAresThreeTierLookup:
+    def test_db_hit_skips_api_call(self):
+        """If EconomicSubject exists in DB with raw_data, no API call is made."""
+        company = Company.objects.create(ico="27082440", name="Alza.cz a.s.")
+        EconomicSubject.objects.create(
+            ico="27082440",
+            business_name="Alza.cz a.s.",
+            raw_data=MOCK_DETAIL_RESPONSE,
+            company=company,
+        )
+
+        mock_client = MagicMock()
+        service = AresService(client=mock_client)
+        result = service.get_by_ico("27082440")
+
+        # API was NOT called — served from DB
+        mock_client.get_by_ico.assert_not_called()
+        assert result is not None
+
+    def test_db_miss_calls_api(self):
+        """If no DB record exists, API is called and result is persisted."""
+        mock_client = MagicMock()
+        mock_client.get_by_ico.return_value = MOCK_DETAIL_RESPONSE
+
+        service = AresService(client=mock_client)
+        result = service.get_by_ico("27082440")
+
+        mock_client.get_by_ico.assert_called_once_with("27082440")
+        assert EconomicSubject.objects.filter(ico="27082440").exists()
+
+    def test_stale_db_record_triggers_background_refresh(self):
+        """If DB record is older than FRESHNESS_TTL, background refresh is scheduled."""
+        company = Company.objects.create(ico="27082440", name="Alza.cz a.s.")
+        record = EconomicSubject.objects.create(
+            ico="27082440",
+            business_name="Alza.cz a.s.",
+            raw_data=MOCK_DETAIL_RESPONSE,
+            company=company,
+        )
+        # Make record stale (older than 24h)
+        EconomicSubject.objects.filter(pk=record.pk).update(
+            updated_at=timezone.now() - timedelta(hours=25)
+        )
+
+        mock_client = MagicMock()
+        service = AresService(client=mock_client)
+
+        with patch.object(service, "_schedule_background_refresh") as mock_refresh:
+            result = service.get_by_ico("27082440")
+
+        # Result served from DB (stale but instant)
+        assert result is not None
+        # Background refresh was triggered
+        mock_refresh.assert_called_once_with("27082440")
+
+    def test_fresh_db_record_no_background_refresh(self):
+        """If DB record is fresh (< FRESHNESS_TTL), no background refresh."""
+        company = Company.objects.create(ico="27082440", name="Alza.cz a.s.")
+        EconomicSubject.objects.create(
+            ico="27082440",
+            business_name="Alza.cz a.s.",
+            raw_data=MOCK_DETAIL_RESPONSE,
+            company=company,
+        )
+        # Record just created = fresh (updated_at is now)
+
+        mock_client = MagicMock()
+        service = AresService(client=mock_client)
+
+        with patch.object(service, "_schedule_background_refresh") as mock_refresh:
+            result = service.get_by_ico("27082440")
+
+        mock_refresh.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestAresSearchPersistence:
+    def test_search_persists_results_to_db(self):
+        """Each entity from search results is persisted as Company + EconomicSubject."""
+        mock_client = MagicMock()
+        mock_client.search.return_value = MOCK_SEARCH_RESPONSE
+
+        service = AresService(client=mock_client)
+        service.search({"name": "Test"})
+
+        # Verify Company and EconomicSubject records were created
+        # (exact count depends on MOCK_SEARCH_RESPONSE content)
+        assert Company.objects.count() >= 1
+        assert EconomicSubject.objects.count() >= 1
+
+    def test_search_does_not_overwrite_existing_company_fields(self):
+        """Search uses get_or_create for Company — doesn't overwrite detail-level data."""
+        Company.objects.create(
+            ico="27082440", name="Full Detail Name", legal_form="121",
+        )
+
+        mock_client = MagicMock()
+        mock_client.search.return_value = MOCK_SEARCH_RESPONSE
+
+        service = AresService(client=mock_client)
+        service.search({"name": "Alza"})
+
+        company = Company.objects.get(ico="27082440")
+        assert company.name == "Full Detail Name"  # NOT overwritten by search summary
 ```
 
-**Step 2: Run test to verify it fails**
+**Step 3: Run tests to verify they fail**
 
-Run: `cd backend && python -m pytest ares/tests/test_services.py::TestAresServicePersistence -v`
-Expected: FAIL — EconomicSubject not persisted (current code only caches).
+Run: `cd backend && python -m pytest ares/tests/test_services.py::TestAresServicePersistence ares/tests/test_services.py::TestAresThreeTierLookup ares/tests/test_services.py::TestAresSearchPersistence -v`
+Expected: FAIL — current code has no DB lookup, no search persistence, no background refresh.
 
-**Step 3: Modify AresService to persist**
+**Step 4: Rewrite AresService**
 
 Replace `backend/ares/services.py`:
 
 ```python
 """
-ARES business logic + caching layer.
-Pattern: validate -> check cache -> throttle -> client -> parse -> cache -> persist -> return
+ARES business logic — 3-tier caching (Redis → DB → API) + every-touch-persists.
+Pattern: validate -> L1 Redis -> L2 DB -> throttle -> L3 API -> persist -> cache -> return
 """
 import logging
 import re
+import threading
+
+from django.utils import timezone
 
 from core.exceptions import ExternalAPIError
 from core.services.cache import CacheService
 from core.throttles import GlobalOutboundThrottle
 from .client import AresClient, ares_client
-from .constants import ARES_DETAIL_CACHE_TTL, ARES_SEARCH_CACHE_TTL
+from .constants import ARES_DETAIL_CACHE_TTL, ARES_SEARCH_CACHE_TTL, ARES_DB_FRESHNESS_TTL
 from .models import EconomicSubject
 from .parser import parse_economic_subject, parse_search_result, to_search_request
 
@@ -765,6 +905,8 @@ class AresService:
         self.outbound_throttle = GlobalOutboundThrottle(
             key="ares", max_requests=12, window=60
         )
+
+    # ── search ────────────────────────────────────────────────
 
     def search(self, params: dict) -> dict:
         request_body = to_search_request(params)
@@ -793,7 +935,12 @@ class AresService:
                     subject, "detail", ico_id, ttl=ARES_DETAIL_CACHE_TTL
                 )
 
+        # Every-touch-persists: save each search result to DB.
+        self._persist_search_results(result)
+
         return result
+
+    # ── get_by_ico — 3-tier lookup ────────────────────────────
 
     def get_by_ico(self, ico: str) -> dict:
         normalized = ico.zfill(8)
@@ -802,10 +949,27 @@ class AresService:
                 "ICO must be 8 digits.", status_code=400, service_name="ares"
             )
 
+        # L1: Redis hot cache
         cached = self.cache.get("detail", normalized)
         if cached is not None:
             return cached
 
+        # L2: DB persistent cache
+        db_record = EconomicSubject.objects.filter(
+            ico=normalized,
+        ).select_related("company").first()
+
+        if db_record and db_record.raw_data:
+            result = parse_economic_subject(db_record.raw_data)
+            self.cache.set(result, "detail", normalized, ttl=ARES_DETAIL_CACHE_TTL)
+
+            # If stale, trigger non-blocking background refresh
+            if self._is_stale(db_record):
+                self._schedule_background_refresh(normalized)
+
+            return result
+
+        # L3: ARES API (rate-limited, authoritative)
         if not self.outbound_throttle.allow():
             raise ExternalAPIError(
                 "ARES rate limit reached. Please try again in a minute.",
@@ -817,14 +981,43 @@ class AresService:
         result = parse_economic_subject(raw)
 
         self.cache.set(result, "detail", normalized, ttl=ARES_DETAIL_CACHE_TTL)
-
-        # Persist to DB (non-blocking — API response is returned even if this fails).
-        self._persist_record(normalized, result, raw)
+        self._persist_detail(normalized, result, raw)
 
         return result
 
-    def _persist_record(self, ico: str, parsed: dict, raw: dict) -> None:
-        """Persist an ARES record to DB and link to Company hub."""
+    # ── freshness ─────────────────────────────────────────────
+
+    def _is_stale(self, record: EconomicSubject) -> bool:
+        """Check if a DB record is older than the freshness threshold."""
+        if not record.updated_at:
+            return True
+        return timezone.now() - record.updated_at > ARES_DB_FRESHNESS_TTL
+
+    # ── background refresh ────────────────────────────────────
+
+    def _schedule_background_refresh(self, ico: str) -> None:
+        """Spawn a daemon thread to refresh stale ARES data without blocking."""
+        thread = threading.Thread(
+            target=self._refresh_from_api, args=(ico,), daemon=True,
+        )
+        thread.start()
+
+    def _refresh_from_api(self, ico: str) -> None:
+        """Background thread: fetch fresh data and update DB + Redis."""
+        try:
+            if not self.outbound_throttle.allow():
+                return  # Don't block on rate limit in background
+            raw = self.client.get_by_ico(ico)
+            result = parse_economic_subject(raw)
+            self.cache.set(result, "detail", ico, ttl=ARES_DETAIL_CACHE_TTL)
+            self._persist_detail(ico, result, raw)
+        except Exception:
+            logger.warning("Background refresh failed for %s", ico, exc_info=True)
+
+    # ── persistence ───────────────────────────────────────────
+
+    def _persist_detail(self, ico: str, parsed: dict, raw: dict) -> None:
+        """Persist full ARES detail to DB and link to Company hub."""
         try:
             Company = _get_company_model()
             business_name = ""
@@ -832,7 +1025,7 @@ class AresService:
             if records:
                 business_name = records[0].get("businessName", "")
 
-            company, _ = Company.objects.get_or_create(
+            company, _ = Company.objects.update_or_create(
                 ico=ico,
                 defaults={"name": business_name},
             )
@@ -845,19 +1038,44 @@ class AresService:
                 },
             )
         except Exception:
-            logger.warning("Failed to persist ARES record %s", ico, exc_info=True)
+            logger.warning("Failed to persist ARES detail %s", ico, exc_info=True)
+
+    def _persist_search_results(self, result: dict) -> None:
+        """Bulk-persist search results to DB (Company + EconomicSubject per entity)."""
+        Company = _get_company_model()
+        for subject in result.get("economicSubjects", []):
+            ico = subject.get("icoId")
+            if not ico:
+                continue
+            try:
+                normalized = ico.zfill(8)
+                # get_or_create for Company — don't overwrite detail-level data
+                company, _ = Company.objects.get_or_create(
+                    ico=normalized,
+                    defaults={"name": subject.get("businessName", "")},
+                )
+                EconomicSubject.objects.update_or_create(
+                    ico=normalized,
+                    defaults={
+                        "business_name": subject.get("businessName", ""),
+                        "raw_data": subject,
+                        "company": company,
+                    },
+                )
+            except Exception:
+                logger.warning("Failed to persist search result %s", ico, exc_info=True)
 ```
 
-**Step 4: Run all ARES tests**
+**Step 5: Run all ARES tests**
 
 Run: `cd backend && python -m pytest ares/tests/ -v`
 Expected: All tests PASS (existing + new).
 
-**Step 5: Commit**
+**Step 6: Commit**
 
 ```bash
-git add backend/ares/services.py backend/ares/tests/test_services.py
-git commit -m "feat(ares): persist EconomicSubject to DB and link Company on fetch"
+git add backend/ares/services.py backend/ares/constants.py backend/ares/tests/test_services.py
+git commit -m "feat(ares): 3-tier lookup (Redis→DB→API), search persistence, background refresh"
 ```
 
 ---
@@ -1391,4 +1609,937 @@ If there are any remaining untracked files (migration files, etc.), add and comm
 
 ```bash
 git commit -m "chore: apply all hub-and-spoke migrations"
+```
+
+---
+
+## Phase 2: Denormalized Search Fields
+
+> **Purpose:** Enable multi-parameter cross-source filtering (legal form + region + employees + revenue) for sales team use cases.
+> Depends on Phase 1 being complete.
+
+---
+
+### Task 12: Add search columns to Company model
+
+**Files:**
+- Modify: `backend/company/models.py`
+- Modify: `backend/company/admin.py`
+- Create: `backend/company/tests/test_search_fields.py`
+
+**Step 1: Write the failing test**
+
+```python
+# backend/company/tests/test_search_fields.py
+import pytest
+from decimal import Decimal
+
+from company.models import Company
+
+
+@pytest.mark.django_db
+class TestCompanySearchFields:
+    def test_create_company_with_search_fields(self):
+        company = Company.objects.create(
+            ico="12345678",
+            name="Test s.r.o.",
+            legal_form="112",
+            region_code=19,
+            region_name="Hlavní město Praha",
+            employee_category="10-19",
+            latest_revenue=Decimal("5234000.00"),
+            nace_primary="62010",
+        )
+        company.refresh_from_db()
+        assert company.legal_form == "112"
+        assert company.region_code == 19
+        assert company.region_name == "Hlavní město Praha"
+        assert company.employee_category == "10-19"
+        assert company.latest_revenue == Decimal("5234000.00")
+        assert company.nace_primary == "62010"
+
+    def test_search_fields_are_optional(self):
+        """Search fields default to empty/null — Phase 1 companies still work."""
+        company = Company.objects.create(ico="12345678", name="Test")
+        company.refresh_from_db()
+        assert company.legal_form == ""
+        assert company.region_code is None
+        assert company.employee_category == ""
+        assert company.latest_revenue is None
+        assert company.nace_primary == ""
+
+    def test_filter_by_legal_form(self):
+        Company.objects.create(ico="11111111", name="SRO Co", legal_form="112")
+        Company.objects.create(ico="22222222", name="AS Co", legal_form="121")
+
+        results = Company.objects.filter(legal_form="112")
+        assert results.count() == 1
+        assert results.first().name == "SRO Co"
+
+    def test_filter_by_region_code(self):
+        Company.objects.create(ico="11111111", name="Prague Co", region_code=19)
+        Company.objects.create(ico="22222222", name="Brno Co", region_code=64)
+
+        results = Company.objects.filter(region_code=19)
+        assert results.count() == 1
+        assert results.first().name == "Prague Co"
+
+    def test_filter_by_revenue_range(self):
+        Company.objects.create(ico="11111111", name="Small", latest_revenue=Decimal("100000"))
+        Company.objects.create(ico="22222222", name="Medium", latest_revenue=Decimal("5000000"))
+        Company.objects.create(ico="33333333", name="Large", latest_revenue=Decimal("50000000"))
+
+        results = Company.objects.filter(
+            latest_revenue__gte=Decimal("1000000"),
+            latest_revenue__lte=Decimal("10000000"),
+        )
+        assert results.count() == 1
+        assert results.first().name == "Medium"
+
+    def test_composite_multi_param_filter(self):
+        """The core sales use case: filter by legal_form + region + employees + revenue."""
+        Company.objects.create(
+            ico="11111111", name="Target Co",
+            legal_form="112", region_code=19,
+            employee_category="10-19", latest_revenue=Decimal("5000000"),
+        )
+        Company.objects.create(
+            ico="22222222", name="Wrong Region",
+            legal_form="112", region_code=64,
+            employee_category="10-19", latest_revenue=Decimal("5000000"),
+        )
+        Company.objects.create(
+            ico="33333333", name="Wrong Form",
+            legal_form="121", region_code=19,
+            employee_category="10-19", latest_revenue=Decimal("5000000"),
+        )
+        Company.objects.create(
+            ico="44444444", name="Low Revenue",
+            legal_form="112", region_code=19,
+            employee_category="10-19", latest_revenue=Decimal("100000"),
+        )
+
+        results = Company.objects.filter(
+            legal_form="112",
+            region_code=19,
+            employee_category="10-19",
+            latest_revenue__gte=Decimal("1000000"),
+        )
+        assert results.count() == 1
+        assert results.first().name == "Target Co"
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `cd backend && python -m pytest company/tests/test_search_fields.py -v`
+Expected: FAIL — Company model doesn't have `legal_form` etc. fields yet.
+
+**Step 3: Add search fields to Company model**
+
+In `backend/company/models.py`, add after the `updated_at` field:
+
+```python
+    # --- Denormalized search fields (Phase 2) ---
+    # Populated from ARES/Justice during fetch/sync for fast multi-param filtering.
+    legal_form = models.CharField(max_length=10, blank=True, default="", db_index=True)
+    region_code = models.IntegerField(null=True, blank=True, db_index=True)
+    region_name = models.CharField(max_length=100, blank=True, default="")
+    employee_category = models.CharField(max_length=50, blank=True, default="", db_index=True)
+    latest_revenue = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True, db_index=True
+    )
+    nace_primary = models.CharField(max_length=10, blank=True, default="", db_index=True)
+```
+
+Also add to Meta class:
+
+```python
+    class Meta:
+        verbose_name_plural = "companies"
+        indexes = [
+            models.Index(
+                fields=["legal_form", "region_code"],
+                name="idx_company_form_region",
+            ),
+        ]
+```
+
+**Step 4: Update admin.py**
+
+```python
+@admin.register(Company)
+class CompanyAdmin(admin.ModelAdmin):
+    list_display = ("ico", "name", "legal_form", "region_name", "employee_category", "is_active", "updated_at")
+    search_fields = ("ico", "name")
+    list_filter = ("is_active", "legal_form", "region_code", "employee_category")
+```
+
+**Step 5: Create and apply migration**
+
+```bash
+cd backend && python manage.py makemigrations company && python manage.py migrate
+```
+
+**Step 6: Run tests**
+
+Run: `cd backend && python -m pytest company/tests/test_search_fields.py -v`
+Expected: All 6 tests PASS.
+
+**Step 7: Commit**
+
+```bash
+git add backend/company/
+git commit -m "feat(company): add denormalized search fields for multi-param filtering"
+```
+
+---
+
+### Task 13: Update ARES persistence to populate search fields
+
+**Files:**
+- Modify: `backend/ares/services.py`
+- Modify: `backend/ares/tests/test_services.py`
+
+**Step 1: Write the failing test**
+
+Add to `backend/ares/tests/test_services.py`:
+
+```python
+# Extended ARES mock with search-relevant fields
+MOCK_DETAIL_WITH_STATS = {
+    "ico": "27082440",
+    "icoId": "27082440",
+    "obchodniJmeno": "Alza.cz a.s.",
+    "sidlo": {
+        "kodKraje": 19,
+        "nazevKraje": "Hlavní město Praha",
+    },
+    "czNace": ["47910"],
+    "statistickeUdaje": {
+        "kategoriePoctuPracovniku": "500-999",
+    },
+    "pravniForma": "121",
+}
+
+
+@pytest.mark.django_db
+class TestAresSearchFieldPopulation:
+    def test_persist_populates_search_fields_on_company(self):
+        """ARES fetch extracts region, employees, NACE, legal form onto Company."""
+        mock_client = MagicMock()
+        mock_client.get_by_ico.return_value = MOCK_DETAIL_WITH_STATS
+
+        # The parser needs to extract these into the parsed result.
+        # Adjust MOCK based on what parse_economic_subject actually returns.
+        service = AresService(client=mock_client)
+        service.get_by_ico("27082440")
+
+        company = Company.objects.get(ico="27082440")
+        assert company.legal_form == "121"
+        assert company.region_code == 19
+        assert company.region_name == "Hlavní město Praha"
+        assert company.employee_category == "500-999"
+        assert company.nace_primary == "47910"
+
+    def test_persist_updates_search_fields_on_refetch(self):
+        """Second ARES fetch updates search fields (not just get_or_create)."""
+        Company.objects.create(
+            ico="27082440", name="Old Name", legal_form="112",
+        )
+
+        mock_client = MagicMock()
+        mock_client.get_by_ico.return_value = MOCK_DETAIL_WITH_STATS
+
+        service = AresService(client=mock_client)
+        service.get_by_ico("27082440")
+
+        company = Company.objects.get(ico="27082440")
+        # Should be updated to ARES values
+        assert company.legal_form == "121"
+        assert company.region_code == 19
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `cd backend && python -m pytest ares/tests/test_services.py::TestAresSearchFieldPopulation -v`
+Expected: FAIL — `_persist_detail()` doesn't extract search fields yet.
+
+**Step 3: Update `_persist_detail()` in `backend/ares/services.py`**
+
+Update the method (created in Task 6) to extract search fields from the parsed ARES response and pass them as Company defaults:
+
+```python
+def _persist_detail(self, ico: str, parsed: dict, raw: dict) -> None:
+    """Persist full ARES detail to DB and update Company search fields."""
+    try:
+        Company = _get_company_model()
+        records = parsed.get("records", [])
+        record = records[0] if records else {}
+        headquarters = record.get("headquarters", {}) or {}
+        stats = record.get("statisticalData", {}) or {}
+
+        business_name = record.get("businessName", "")
+
+        company_defaults = {
+            "name": business_name,
+            "legal_form": record.get("legalForm", "") or "",
+            "region_code": headquarters.get("regionCode"),
+            "region_name": headquarters.get("regionName", "") or "",
+            "employee_category": stats.get("employeeCountCategory", "") or "",
+            "nace_primary": (record.get("naceActivities") or [""])[0],
+        }
+
+        company, _ = Company.objects.update_or_create(
+            ico=ico,
+            defaults=company_defaults,
+        )
+        EconomicSubject.objects.update_or_create(
+            ico=ico,
+            defaults={
+                "business_name": business_name,
+                "raw_data": raw,
+                "company": company,
+            },
+        )
+    except Exception:
+        logger.warning("Failed to persist ARES detail %s", ico, exc_info=True)
+```
+
+**Step 4: Run all ARES tests**
+
+Run: `cd backend && python -m pytest ares/tests/ -v`
+Expected: All tests PASS.
+
+**Step 5: Commit**
+
+```bash
+git add backend/ares/services.py backend/ares/tests/test_services.py
+git commit -m "feat(ares): populate Company search fields during ARES fetch"
+```
+
+---
+
+### Task 14: Update Justice sync to populate search fields
+
+**Files:**
+- Modify: `backend/justice/services.py`
+- Modify: `backend/justice/tests/test_services.py`
+
+**Step 1: Write the failing test**
+
+Add to `backend/justice/tests/test_services.py`:
+
+```python
+from company.models import Company
+
+
+@pytest.mark.django_db
+class TestJusticeSyncPopulatesSearchFields:
+    def test_upsert_entity_sets_legal_form_on_company(self):
+        """Justice sync writes legal_form to Company if not already set."""
+        sync_service = JusticeSyncService(client=MagicMock())
+
+        subjekt = {
+            "ico": "12345678",
+            "name": "Test s.r.o.",
+            "facts": [
+                {
+                    "header": "Právní forma",
+                    "fact_type_code": "PRAVNI_FORMA",
+                    "value_text": "Společnost s ručením omezeným",
+                    "code": "112",
+                    "sub_facts": [],
+                }
+            ],
+        }
+        entity = sync_service._upsert_entity(subjekt, "sro-actual-praha-2024")
+
+        company = Company.objects.get(ico="12345678")
+        assert company.legal_form == "112"
+
+    def test_upsert_entity_does_not_overwrite_ares_legal_form(self):
+        """If Company already has legal_form from ARES, Justice doesn't overwrite."""
+        Company.objects.create(ico="12345678", name="Test", legal_form="112")
+
+        sync_service = JusticeSyncService(client=MagicMock())
+        subjekt = {
+            "ico": "12345678",
+            "name": "Test s.r.o.",
+            "facts": [],
+        }
+        sync_service._upsert_entity(subjekt, "sro-actual-praha-2024")
+
+        company = Company.objects.get(ico="12345678")
+        assert company.legal_form == "112"  # Unchanged
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `cd backend && python -m pytest justice/tests/test_services.py::TestJusticeSyncPopulatesSearchFields -v`
+Expected: FAIL — `_upsert_entity` doesn't set `legal_form` on Company.
+
+**Step 3: Modify `_upsert_entity()` in `backend/justice/services.py`**
+
+After the `Company.objects.get_or_create(...)` call, add:
+
+```python
+    # Phase 2: Populate search fields from Justice if not already set by ARES.
+    update_fields = {}
+    legal_form_code = legal_form.get("code", "") if legal_form else ""
+    if legal_form_code and not company.legal_form:
+        update_fields["legal_form"] = legal_form_code
+    if update_fields:
+        Company.objects.filter(pk=company.pk).update(**update_fields)
+```
+
+**Step 4: Run all Justice tests**
+
+Run: `cd backend && python -m pytest justice/tests/ -v`
+Expected: All tests PASS.
+
+**Step 5: Commit**
+
+```bash
+git add backend/justice/services.py backend/justice/tests/test_services.py
+git commit -m "feat(justice): populate Company.legal_form during entity sync"
+```
+
+---
+
+### Task 15: Company search endpoint and service
+
+**Files:**
+- Modify: `backend/company/services.py`
+- Create: `backend/company/tests/test_search.py`
+- Modify: `backend/company/serializers.py`
+- Modify: `backend/company/views.py`
+- Modify: `backend/company/urls.py`
+
+**Step 1: Write the failing test for CompanyService.search()**
+
+```python
+# backend/company/tests/test_search.py
+import pytest
+from decimal import Decimal
+
+from company.models import Company
+from company.services import CompanyService
+from core.exceptions import ExternalAPIError
+
+
+def _create_company(**overrides):
+    defaults = {
+        "ico": "12345678",
+        "name": "Test s.r.o.",
+        "legal_form": "112",
+        "region_code": 19,
+        "region_name": "Hlavní město Praha",
+        "employee_category": "10-19",
+        "latest_revenue": Decimal("5000000"),
+        "nace_primary": "62010",
+    }
+    defaults.update(overrides)
+    return Company.objects.create(**defaults)
+
+
+@pytest.mark.django_db
+class TestCompanySearch:
+    def test_search_by_legal_form(self):
+        _create_company(ico="11111111", legal_form="112")
+        _create_company(ico="22222222", legal_form="121")
+
+        service = CompanyService()
+        result = service.search({"legalForm": "112"})
+
+        assert result["totalCount"] == 1
+        assert result["companies"][0]["ico"] == "11111111"
+
+    def test_search_by_region(self):
+        _create_company(ico="11111111", region_code=19)
+        _create_company(ico="22222222", region_code=64)
+
+        service = CompanyService()
+        result = service.search({"regionCode": 19})
+
+        assert result["totalCount"] == 1
+        assert result["companies"][0]["ico"] == "11111111"
+
+    def test_search_by_employee_category(self):
+        _create_company(ico="11111111", employee_category="10-19")
+        _create_company(ico="22222222", employee_category="50-99")
+
+        service = CompanyService()
+        result = service.search({"employeeCategory": "10-19"})
+
+        assert result["totalCount"] == 1
+
+    def test_search_by_revenue_range(self):
+        _create_company(ico="11111111", latest_revenue=Decimal("100000"))
+        _create_company(ico="22222222", latest_revenue=Decimal("5000000"))
+        _create_company(ico="33333333", latest_revenue=Decimal("50000000"))
+
+        service = CompanyService()
+        result = service.search({"revenueMin": 1000000, "revenueMax": 10000000})
+
+        assert result["totalCount"] == 1
+        assert result["companies"][0]["ico"] == "22222222"
+
+    def test_search_multi_param_composite(self):
+        """The core sales use case."""
+        _create_company(ico="11111111", name="Target")
+        _create_company(ico="22222222", name="Wrong Region", region_code=64)
+        _create_company(ico="33333333", name="Wrong Form", legal_form="121")
+
+        service = CompanyService()
+        result = service.search({
+            "legalForm": "112",
+            "regionCode": 19,
+            "employeeCategory": "10-19",
+            "revenueMin": 1000000,
+        })
+
+        assert result["totalCount"] == 1
+        assert result["companies"][0]["name"] == "Target"
+
+    def test_search_pagination(self):
+        for i in range(10):
+            _create_company(
+                ico=f"1000000{i}",
+                name=f"Company {i:02d}",
+                latest_revenue=Decimal(str((i + 1) * 1000000)),
+            )
+
+        service = CompanyService()
+        result = service.search({"offset": 2, "limit": 3})
+
+        assert result["totalCount"] == 10
+        assert result["offset"] == 2
+        assert result["limit"] == 3
+        assert len(result["companies"]) == 3
+
+    def test_search_by_name(self):
+        _create_company(ico="11111111", name="Alpha Corp")
+        _create_company(ico="22222222", name="Beta Inc")
+
+        service = CompanyService()
+        result = service.search({"name": "Alpha"})
+
+        assert result["totalCount"] == 1
+        assert result["companies"][0]["name"] == "Alpha Corp"
+
+    def test_search_active_filter(self):
+        _create_company(ico="11111111", is_active=True)
+        _create_company(ico="22222222", is_active=False)
+
+        service = CompanyService()
+
+        active = service.search({"status": "active"})
+        assert active["totalCount"] == 1
+
+        inactive = service.search({"status": "inactive"})
+        assert inactive["totalCount"] == 1
+
+        all_results = service.search({})
+        assert all_results["totalCount"] == 2
+```
+
+**Step 2: Run test to verify it fails**
+
+Run: `cd backend && python -m pytest company/tests/test_search.py -v`
+Expected: FAIL — CompanyService has no `search()` method.
+
+**Step 3: Add `search()` method to CompanyService**
+
+In `backend/company/services.py`, add:
+
+```python
+    def search(self, params: dict) -> dict:
+        """Multi-parameter search across denormalized Company fields."""
+        qs = Company.objects.all()
+
+        if name := params.get("name"):
+            qs = qs.filter(name__icontains=name)
+        if legal_form := params.get("legalForm"):
+            qs = qs.filter(legal_form=legal_form)
+        if region_code := params.get("regionCode"):
+            qs = qs.filter(region_code=region_code)
+        if employee_cat := params.get("employeeCategory"):
+            qs = qs.filter(employee_category=employee_cat)
+        if revenue_min := params.get("revenueMin"):
+            qs = qs.filter(latest_revenue__gte=revenue_min)
+        if revenue_max := params.get("revenueMax"):
+            qs = qs.filter(latest_revenue__lte=revenue_max)
+        if nace := params.get("nace"):
+            qs = qs.filter(nace_primary=nace)
+        if params.get("status") == "active":
+            qs = qs.filter(is_active=True)
+        elif params.get("status") == "inactive":
+            qs = qs.filter(is_active=False)
+
+        total = qs.count()
+        offset = params.get("offset", 0)
+        limit = params.get("limit", 25)
+        companies = qs.order_by("-latest_revenue", "name")[offset:offset + limit]
+
+        return {
+            "totalCount": total,
+            "offset": offset,
+            "limit": limit,
+            "companies": [
+                {
+                    "ico": c.ico,
+                    "name": c.name,
+                    "isActive": c.is_active,
+                    "legalForm": c.legal_form,
+                    "regionCode": c.region_code,
+                    "regionName": c.region_name,
+                    "employeeCategory": c.employee_category,
+                    "latestRevenue": str(c.latest_revenue) if c.latest_revenue else None,
+                    "nacePrimary": c.nace_primary,
+                }
+                for c in companies
+            ],
+        }
+```
+
+**Step 4: Add search serializer and view**
+
+In `backend/company/serializers.py`, add:
+
+```python
+class CompanySearchRequestSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False, allow_blank=True)
+    legalForm = serializers.CharField(required=False)
+    regionCode = serializers.IntegerField(required=False)
+    employeeCategory = serializers.CharField(required=False)
+    revenueMin = serializers.DecimalField(max_digits=15, decimal_places=2, required=False)
+    revenueMax = serializers.DecimalField(max_digits=15, decimal_places=2, required=False)
+    nace = serializers.CharField(required=False)
+    status = serializers.ChoiceField(choices=["active", "inactive", "all"], required=False)
+    offset = serializers.IntegerField(required=False, min_value=0)
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=100)
+
+
+class CompanySummarySerializer(serializers.Serializer):
+    ico = serializers.CharField()
+    name = serializers.CharField()
+    isActive = serializers.BooleanField()
+    legalForm = serializers.CharField()
+    regionCode = serializers.IntegerField(allow_null=True)
+    regionName = serializers.CharField()
+    employeeCategory = serializers.CharField()
+    latestRevenue = serializers.CharField(allow_null=True)
+    nacePrimary = serializers.CharField()
+
+
+class CompanySearchResultSerializer(serializers.Serializer):
+    totalCount = serializers.IntegerField()
+    offset = serializers.IntegerField()
+    limit = serializers.IntegerField()
+    companies = CompanySummarySerializer(many=True)
+```
+
+In `backend/company/views.py`, add:
+
+```python
+from .serializers import CompanyDetailSerializer, CompanySearchRequestSerializer, CompanySearchResultSerializer
+
+
+class CompanySearchView(APIView):
+    """GET /v1/companies/search/?legalForm=112&regionCode=19&..."""
+
+    def get(self, request):
+        serializer = CompanySearchRequestSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        service = CompanyService()
+        result = service.search(serializer.validated_data)
+
+        return Response(CompanySearchResultSerializer(result).data)
+```
+
+In `backend/company/urls.py`, add the search route:
+
+```python
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path("search/", views.CompanySearchView.as_view(), name="company-search"),
+    path("<str:ico>/", views.CompanyDetailView.as_view(), name="company-detail"),
+]
+```
+
+**Step 5: Write view-level test**
+
+Add to `backend/company/tests/test_views.py`:
+
+```python
+@pytest.mark.django_db
+class TestCompanySearchView:
+    def test_search_with_filters(self):
+        Company.objects.create(
+            ico="12345678", name="Target s.r.o.",
+            legal_form="112", region_code=19,
+            employee_category="10-19", latest_revenue=Decimal("5000000"),
+        )
+        Company.objects.create(
+            ico="99999999", name="Other a.s.",
+            legal_form="121", region_code=64,
+        )
+
+        client = Client()
+        response = client.get(
+            "/api/v1/companies/search/",
+            {"legalForm": "112", "regionCode": 19},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["totalCount"] == 1
+        assert data["companies"][0]["ico"] == "12345678"
+
+    def test_search_empty_returns_all(self):
+        Company.objects.create(ico="11111111", name="A")
+        Company.objects.create(ico="22222222", name="B")
+
+        client = Client()
+        response = client.get("/api/v1/companies/search/")
+
+        assert response.status_code == 200
+        assert response.json()["totalCount"] == 2
+```
+
+**Step 6: Run all tests**
+
+Run: `cd backend && python -m pytest company/tests/ -v`
+Expected: All tests PASS.
+
+**Step 7: Commit**
+
+```bash
+git add backend/company/
+git commit -m "feat(company): add multi-parameter search endpoint /api/v1/companies/search/"
+```
+
+---
+
+### Task 16: Frontend — Company search types and page
+
+**Files:**
+- Modify: `src/lib/company/company.types.ts`
+- Modify: `src/lib/company/company.endpoints.ts`
+- Modify: `src/lib/company/company.queries.ts`
+- Create: `src/app/companies/search/page.tsx`
+- Create: `src/components/company/company-search.tsx`
+
+**Step 1: Update TypeScript types**
+
+Add to `src/lib/company/company.types.ts`:
+
+```typescript
+export interface CompanySummary {
+  ico: string;
+  name: string;
+  isActive: boolean;
+  legalForm: string;
+  regionCode: number | null;
+  regionName: string;
+  employeeCategory: string;
+  latestRevenue: string | null;
+  nacePrimary: string;
+}
+
+export interface CompanySearchResult {
+  totalCount: number;
+  offset: number;
+  limit: number;
+  companies: CompanySummary[];
+}
+
+export interface CompanySearchParams {
+  name?: string;
+  legalForm?: string;
+  regionCode?: number;
+  employeeCategory?: string;
+  revenueMin?: number;
+  revenueMax?: number;
+  nace?: string;
+  status?: "active" | "inactive" | "all";
+  offset?: number;
+  limit?: number;
+}
+```
+
+**Step 2: Add search endpoint function**
+
+Add to `src/lib/company/company.endpoints.ts`:
+
+```typescript
+import type { CompanySearchResult, CompanySearchParams } from "./company.types";
+
+export async function searchCompanies(params: CompanySearchParams): Promise<CompanySearchResult> {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  }
+
+  const response = await fetch(`${API_BASE}/api/v1/companies/search/?${searchParams}`);
+
+  if (!response.ok) {
+    throw new Error(`Company search failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+```
+
+**Step 3: Add React Query hook**
+
+Add to `src/lib/company/company.queries.ts`:
+
+```typescript
+import { searchCompanies } from "./company.endpoints";
+import type { CompanySearchParams } from "./company.types";
+
+export const companyKeys = {
+  all: ["company"] as const,
+  detail: (ico: string) => [...companyKeys.all, "detail", ico] as const,
+  search: (params: CompanySearchParams) => [...companyKeys.all, "search", params] as const,
+};
+
+export function useCompanySearch(params: CompanySearchParams) {
+  return useQuery({
+    queryKey: companyKeys.search(params),
+    queryFn: () => searchCompanies(params),
+  });
+}
+```
+
+**Step 4: Create search page route**
+
+```typescript
+// src/app/companies/search/page.tsx
+import { CompanySearch } from "@/components/company/company-search";
+
+export default function CompanySearchPage() {
+  return <CompanySearch />;
+}
+```
+
+**Step 5: Create CompanySearch component**
+
+Reference existing search patterns in the project. Build a filter sidebar + results table component. This is a UI-heavy component — adjust to match the project's existing design system (shadcn/ui, Tailwind classes, etc.).
+
+```typescript
+// src/components/company/company-search.tsx
+"use client";
+
+import { useState } from "react";
+import { useCompanySearch } from "@/lib/company/company.queries";
+import type { CompanySearchParams } from "@/lib/company/company.types";
+
+export function CompanySearch() {
+  const [params, setParams] = useState<CompanySearchParams>({
+    status: "active",
+    limit: 25,
+    offset: 0,
+  });
+
+  const { data, isLoading } = useCompanySearch(params);
+
+  // Render filter controls + results table.
+  // Filters: legalForm dropdown, regionCode dropdown, employeeCategory dropdown,
+  //          revenueMin/revenueMax inputs, name text input.
+  // Results: table with columns: ICO, Name, Legal Form, Region, Employees, Revenue, NACE.
+  // Pagination: offset/limit controls.
+
+  return (
+    <div className="container mx-auto p-6 max-w-6xl">
+      <h1 className="text-2xl font-bold mb-6">Company Search</h1>
+      {/* Filter sidebar and results table - implement using project's UI components */}
+      {isLoading && <p>Loading...</p>}
+      {data && (
+        <div>
+          <p className="text-sm text-muted-foreground mb-4">
+            {data.totalCount} companies found
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-2">ICO</th>
+                <th className="text-left p-2">Name</th>
+                <th className="text-left p-2">Legal Form</th>
+                <th className="text-left p-2">Region</th>
+                <th className="text-left p-2">Employees</th>
+                <th className="text-right p-2">Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.companies.map((c) => (
+                <tr key={c.ico} className="border-b hover:bg-muted/50">
+                  <td className="p-2 font-mono">{c.ico}</td>
+                  <td className="p-2">{c.name}</td>
+                  <td className="p-2">{c.legalForm}</td>
+                  <td className="p-2">{c.regionName}</td>
+                  <td className="p-2">{c.employeeCategory}</td>
+                  <td className="p-2 text-right">
+                    {c.latestRevenue ? Number(c.latestRevenue).toLocaleString("cs-CZ") : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**Step 6: Verify build**
+
+Run: `npm run build`
+Expected: Build completes without TypeScript errors.
+
+**Step 7: Commit**
+
+```bash
+git add src/lib/company/ src/app/companies/search/ src/components/company/
+git commit -m "feat(company): add multi-parameter search page /companies/search"
+```
+
+---
+
+### Task 17: Phase 2 verification and final commit
+
+**Step 1: Run full backend test suite**
+
+```bash
+cd backend && python -m pytest -v
+```
+
+Expected: All tests PASS across all apps.
+
+**Step 2: Run frontend build**
+
+```bash
+npm run build
+```
+
+Expected: Build succeeds.
+
+**Step 3: Apply any pending migrations**
+
+```bash
+cd backend && python manage.py migrate
+```
+
+**Step 4: Final commit**
+
+```bash
+git add -A && git status
+git commit -m "chore: Phase 2 search hub complete — multi-parameter filtering ready"
 ```
