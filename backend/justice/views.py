@@ -1,12 +1,17 @@
 """
 Justice API endpoints. Thin handlers: validate → service → serialize → respond.
 """
+from django.http import HttpResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_exempt
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .client import justice_sbirka_client
 from .serializers import (
     AddressSerializer,
     DatasetInfoSerializer,
+    DocumentListSerializer,
     EntityDetailSerializer,
     EntityLookupSerializer,
     EntitySearchSerializer,
@@ -92,3 +97,39 @@ class SyncStatusView(APIView):
         result = service.get_sync_status()
 
         return Response(SyncStatusSerializer(result).data)
+
+
+class EntityDocumentsView(APIView):
+    """GET /v1/justice/entities/{ico}/documents/"""
+
+    def get(self, request, ico):
+        service = JusticeService()
+        result = service.get_entity_documents(ico)
+
+        return Response(DocumentListSerializer(result).data)
+
+
+@method_decorator(xframe_options_exempt, name="dispatch")
+class DocumentProxyView(APIView):
+    """
+    GET /v1/justice/documents/{download_id}/
+
+    Proxies PDF/XML downloads from or.justice.cz.
+    Required because the justice.cz server needs session cookies
+    that browsers can't set cross-origin.
+    """
+
+    def get(self, request, download_id):
+        client = justice_sbirka_client
+
+        try:
+            content, content_type, filename = client.download_file(download_id)
+        except Exception:
+            return Response(
+                {"error": "Failed to download document"},
+                status=502,
+            )
+
+        response = HttpResponse(content, content_type=content_type)
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response

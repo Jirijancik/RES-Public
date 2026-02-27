@@ -127,6 +127,30 @@
       "active": "Aktivni",
       "deleted": "Vymazany",
       "all": "Vse"
+    },
+    "documents": {
+      "title": "Sbirka listin",
+      "load": "Zobrazit sbirku listin",
+      "loading": "Nacitam dokumenty z or.justice.cz...",
+      "error": "Nepodarilo se nacist sbirku listin",
+      "viewOnJustice": "Zobrazit na or.justice.cz",
+      "noDocuments": "Zadne dokumenty nenalezeny",
+      "count": "{{count}} dokumentu",
+      "files": "Soubory",
+      "financials": {
+        "item": "Polozka",
+        "brutto": "Brutto",
+        "korekce": "Korekce",
+        "netto": "Netto",
+        "nettoMin": "Minule obdobi",
+        "current": "Bezne obdobi",
+        "previous": "Minule obdobi",
+        "period": "Obdobi: {{from}} — {{to}}",
+        "inThousands": "v tis.",
+        "aktiva": "Rozvaha — Aktiva",
+        "pasiva": "Rozvaha — Pasiva",
+        "vzz": "Vykaz zisku a ztraty"
+      }
     }
   },
   "labels": {

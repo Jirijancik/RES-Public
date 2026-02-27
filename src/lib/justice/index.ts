@@ -9,6 +9,12 @@ export type {
   JusticeSearchResult,
   JusticeSearchParams,
   JusticeHistoryEntry,
+  JusticeDocumentFile,
+  JusticeFinancialRow,
+  JusticeFinancialMetadata,
+  JusticeFinancialData,
+  JusticeDocument,
+  JusticeDocumentList,
 } from "./justice.types";
 
 // Constants
@@ -21,5 +27,5 @@ export { justiceKeys } from "./justice.keys";
 export { justiceEndpoints, JusticeApiError } from "./justice.endpoints";
 
 // React Query Hooks
-export { useJusticeEntityByIco, useJusticeHistory, useJusticePersons, useJusticeAddresses } from "./justice.queries";
+export { useJusticeEntityByIco, useJusticeHistory, useJusticePersons, useJusticeAddresses, useJusticeDocuments } from "./justice.queries";
 export { useJusticeSearch } from "./justice.mutations";

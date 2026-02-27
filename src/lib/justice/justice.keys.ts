@@ -27,4 +27,7 @@ export const justiceKeys = {
 
   /** Key for entity addresses */
   addresses: (ico: string) => [...justiceKeys.all, "addresses", ico] as const,
+
+  /** Key for entity documents (sbírka listin) */
+  documents: (ico: string) => [...justiceKeys.detail(ico), "documents"] as const,
 };

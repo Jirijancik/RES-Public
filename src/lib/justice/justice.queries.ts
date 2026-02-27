@@ -6,6 +6,7 @@ import type {
   JusticeHistoryEntry,
   JusticePersonWithFact,
   JusticeAddress,
+  JusticeDocumentList,
 } from "./justice.types";
 
 type GetByIcoOptions = Omit<
@@ -61,5 +62,17 @@ export function useJusticeAddresses(ico: string) {
     queryKey: justiceKeys.addresses(ico),
     queryFn: () => justiceEndpoints.getAddresses(ico),
     enabled: Boolean(ico) && ico.length >= 1,
+  });
+}
+
+/**
+ * Hook to fetch sbírka listin documents.
+ * Disabled by default — enable by setting `enabled: true` when the user clicks.
+ */
+export function useJusticeDocuments(ico: string, enabled: boolean = false) {
+  return useQuery({
+    queryKey: justiceKeys.documents(ico),
+    queryFn: () => justiceEndpoints.getDocuments(ico),
+    enabled: enabled && Boolean(ico) && ico.length >= 1,
   });
 }

@@ -2,7 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { ArrowLeftIcon, AlertCircleIcon, ChevronDownIcon, CheckIcon, CopyIcon } from "lucide-react";
-import { useJusticeEntityByIco, type JusticeFact, type JusticePerson } from "@/lib/justice";
+import { useJusticeEntityByIco, type JusticeAddress, type JusticeFact, type JusticePerson } from "@/lib/justice";
 import { Container } from "@/components/ui/container";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Link } from "@/components/ui/link";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { JusticeDocumentsSection } from "./justice-documents-section";
 
 interface JusticeDetailProps {
   ico: string;
@@ -23,6 +24,16 @@ function formatDate(date: string | null | undefined): string | null {
   if (isNaN(parsed.getTime())) return null;
   return new Intl.DateTimeFormat("cs-CZ").format(parsed);
 }
+
+function formatJusticeAddress(addr: JusticeAddress): string {
+  if (addr.fullAddress) return addr.fullAddress;
+  const street = addr.street || "";
+  const house = [addr.houseNumber, addr.orientationNumber].filter(Boolean).join("/");
+  const streetLine = street && house ? `${street} ${house}` : street || house;
+  const city = [addr.municipality, addr.cityPart].filter(Boolean).join(" - ");
+  return [streetLine, city, addr.postalCode].filter(Boolean).join(", ");
+}
+
 
 function CopyableValue({ value }: { value: string }) {
   return (
@@ -73,20 +84,48 @@ function PersonInfo({ person }: { person: JusticePerson }) {
   );
 }
 
-function FactCard({ fact, depth = 0 }: { fact: JusticeFact; depth?: number }) {
+function formatValueData(valueData: Record<string, unknown> | null): string | null {
+  if (!valueData) return null;
+  // Handle vklad (capital) amounts: { vklad: { textValue: "50000", typ: "KORUNY" } }
+  const vklad = valueData.vklad as { textValue?: string; typ?: string } | undefined;
+  if (vklad?.textValue) {
+    const amount = Number(vklad.textValue).toLocaleString("cs-CZ");
+    return vklad.typ === "KORUNY" ? `${amount} Kč` : amount;
+  }
+  // Handle souhrn/splaceni for podíl
+  const parts: string[] = [];
+  const souhrn = valueData.souhrn as { textValue?: string; typ?: string } | undefined;
+  const splaceni = valueData.splaceni as { textValue?: string; typ?: string } | undefined;
+  if (vklad?.textValue) parts.push(`Vklad: ${Number(vklad.textValue).toLocaleString("cs-CZ")} Kč`);
+  if (souhrn?.textValue) parts.push(`Podíl: ${souhrn.textValue}%`);
+  if (splaceni?.textValue) parts.push(`Splaceno: ${splaceni.textValue}%`);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+function FactCard({ fact, depth = 0, hideHeader }: { fact: JusticeFact; depth?: number; hideHeader?: boolean }) {
   const regDate = formatDate(fact.registrationDate);
   const delDate = formatDate(fact.deletionDate);
-  const hasContent = fact.valueText || fact.person || fact.addresses.length > 0 || fact.subFacts.length > 0;
+
+  // Skip valueText when it's a redundant label (same as header) or an internal code
+  const showValueText = fact.valueText
+    && fact.valueText !== fact.header
+    && !["AngazmaFyzicke", "Spolecnik", "INDIVIDUALNI_SRO"].includes(fact.valueText);
+
+  const formattedValueData = formatValueData(fact.valueData);
 
   return (
-    <div className={depth > 0 ? "border-l-2 border-muted pl-4 mt-2" : ""}>
-      <div className="space-y-1">
-        {fact.header ? (
+    <div className={depth > 0 ? "border-muted border-l-2 pl-3 mt-1" : ""}>
+      <div className="space-y-0.5">
+        {fact.header && !hideHeader ? (
           <div className="text-sm font-medium">{fact.header}</div>
         ) : null}
 
-        {fact.valueText ? (
+        {showValueText ? (
           <div className="text-muted-foreground text-sm">{fact.valueText}</div>
+        ) : null}
+
+        {formattedValueData ? (
+          <div className="text-muted-foreground text-sm">{formattedValueData}</div>
         ) : null}
 
         {fact.person ? (
@@ -95,11 +134,14 @@ function FactCard({ fact, depth = 0 }: { fact: JusticeFact; depth?: number }) {
           </div>
         ) : null}
 
-        {fact.addresses.map((addr, i) => (
-          <div key={i} className="text-muted-foreground text-sm">
-            {addr.fullAddress}
-          </div>
-        ))}
+        {fact.addresses.map((addr, i) => {
+          const formatted = formatJusticeAddress(addr);
+          return formatted ? (
+            <div key={i} className="text-muted-foreground text-sm">
+              {formatted}
+            </div>
+          ) : null;
+        })}
 
         {(regDate || delDate) ? (
           <div className="text-muted-foreground text-xs">
@@ -111,13 +153,34 @@ function FactCard({ fact, depth = 0 }: { fact: JusticeFact; depth?: number }) {
       </div>
 
       {fact.subFacts.length > 0 ? (
-        <div className="mt-2 space-y-2">
+        <div className="mt-1 space-y-1">
           {fact.subFacts.map((sf, i) => (
             <FactCard key={i} fact={sf} depth={depth + 1} />
           ))}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FactGroupRow({ groupName, facts }: { groupName: string; facts: JusticeFact[] }) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="hover:bg-muted/50 -mx-6 flex w-[calc(100%+3rem)] cursor-pointer items-center justify-between px-6 py-3 text-sm transition-colors">
+        <span className="font-medium">{groupName}</span>
+        <span className="flex items-center gap-2">
+          <span className="text-muted-foreground text-xs">({facts.length})</span>
+          <ChevronDownIcon className="text-muted-foreground size-4 transition-transform in-data-[state=open]:rotate-180" />
+        </span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="space-y-2 pb-3">
+          {facts.map((fact, i) => (
+            <FactCard key={i} fact={fact} hideHeader />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -163,12 +226,18 @@ export function JusticeDetail({ ico }: JusticeDetailProps) {
     factGroups.get(key)!.push(fact);
   }
 
-  // Extract persons and addresses from facts for the right column
-  const allPersons = entity.facts
-    .filter((f) => f.person)
-    .map((f) => ({ person: f.person!, functionName: f.functionName || f.header }));
+  // Extract obchodní firma (trade name) from název fact for basic info
+  const nazevFact = entity.facts.find((f) => f.factTypeCode === "NAZEV");
 
-  const allAddresses = entity.facts.flatMap((f) => f.addresses);
+  // Extract statutární orgán members for basic info
+  const statOrganFact = entity.facts.find((f) => f.factTypeCode === "STATUTARNI_ORGAN");
+  const organMembers = statOrganFact?.subFacts.filter((sf) => sf.person) ?? [];
+  const zpusobJednani = statOrganFact?.subFacts.find((sf) => sf.factTypeCode === "ZPUSOB_JEDNANI");
+
+  // Extract only entity-level addresses (sídlo) for the sidebar, not person addresses
+  const allAddresses = entity.facts
+    .filter((f) => f.factTypeName?.toLowerCase().includes("sídlo"))
+    .flatMap((f) => [...f.addresses, ...f.subFacts.flatMap((sf) => sf.addresses)]);
 
   return (
     <Container size="xl">
@@ -196,128 +265,122 @@ export function JusticeDetail({ ico }: JusticeDetailProps) {
 
         <Separator />
 
-        {/* Responsive two-column grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Left column: main info + facts */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Basic Info */}
+        {/* Two-column grid: Basic Info + Registry Data */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Left column: basic info with address */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("justice.detail.basicInfo")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <DetailRow label={t("justice.fields.ico")}>
+                  <CopyableValue value={entity.ico} />
+                </DetailRow>
+
+                {nazevFact ? (
+                  <DetailRow label={nazevFact.header || t("justice.fields.name")}>
+                    <div>
+                      <div>{nazevFact.valueText}</div>
+                      {nazevFact.registrationDate ? (
+                        <div className="text-muted-foreground text-xs">
+                          Zapsáno: {formatDate(nazevFact.registrationDate)}
+                        </div>
+                      ) : null}
+                    </div>
+                  </DetailRow>
+                ) : null}
+
+                {entity.legalFormName ? (
+                  <DetailRow label={t("justice.fields.legalForm")}>
+                    {entity.legalFormName}
+                  </DetailRow>
+                ) : null}
+
+                {entity.courtName ? (
+                  <DetailRow label={t("justice.fields.court")}>{entity.courtName}</DetailRow>
+                ) : null}
+
+                {entity.fileReference ? (
+                  <DetailRow label={t("justice.fields.fileReference")}>
+                    <CopyableValue value={entity.fileReference} />
+                  </DetailRow>
+                ) : null}
+
+                {entity.registrationDate ? (
+                  <DetailRow label={t("justice.fields.registrationDate")}>
+                    {formatDate(entity.registrationDate)}
+                  </DetailRow>
+                ) : null}
+
+                {entity.deletionDate ? (
+                  <DetailRow label={t("justice.fields.deletionDate")}>
+                    {formatDate(entity.deletionDate)}
+                  </DetailRow>
+                ) : null}
+
+                {allAddresses.length > 0 ? (
+                  <DetailRow label={t("justice.detail.addresses")}>
+                    <div className="space-y-1">
+                      {allAddresses.map((addr, i) => {
+                        const formatted = formatJusticeAddress(addr);
+                        return formatted ? <div key={i}>{formatted}</div> : null;
+                      })}
+                    </div>
+                  </DetailRow>
+                ) : null}
+
+                {organMembers.length > 0 ? (
+                  <DetailRow label={statOrganFact?.header || "Statutární orgán"}>
+                    <div className="space-y-1.5">
+                      {organMembers.map((member, i) => (
+                        <div key={i}>
+                          <div className="flex items-center gap-1.5">
+                            {member.functionName ? (
+                              <span className="text-muted-foreground">{member.functionName}:</span>
+                            ) : null}
+                            {member.person ? <PersonInfo person={member.person} /> : null}
+                          </div>
+                          {member.addresses.map((addr, j) => {
+                            const formatted = formatJusticeAddress(addr);
+                            return formatted ? (
+                              <div key={j} className="text-muted-foreground text-xs">{formatted}</div>
+                            ) : null;
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </DetailRow>
+                ) : null}
+
+                {zpusobJednani?.valueText ? (
+                  <DetailRow label={zpusobJednani.header || "Způsob jednání"}>
+                    {zpusobJednani.valueText}
+                  </DetailRow>
+                ) : null}
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Right column: registry data */}
+          {factGroups.size > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>{t("justice.detail.basicInfo")}</CardTitle>
+                <CardTitle>{t("justice.detail.facts")}</CardTitle>
               </CardHeader>
               <CardContent>
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                  <DetailRow label={t("justice.fields.ico")}>
-                    <CopyableValue value={entity.ico} />
-                  </DetailRow>
-
-                  {entity.legalFormName ? (
-                    <DetailRow label={t("justice.fields.legalForm")}>
-                      {entity.legalFormName}
-                    </DetailRow>
-                  ) : null}
-
-                  {entity.courtName ? (
-                    <DetailRow label={t("justice.fields.court")}>{entity.courtName}</DetailRow>
-                  ) : null}
-
-                  {entity.fileReference ? (
-                    <DetailRow label={t("justice.fields.fileReference")}>
-                      <CopyableValue value={entity.fileReference} />
-                    </DetailRow>
-                  ) : null}
-
-                  {entity.registrationDate ? (
-                    <DetailRow label={t("justice.fields.registrationDate")}>
-                      {formatDate(entity.registrationDate)}
-                    </DetailRow>
-                  ) : null}
-
-                  {entity.deletionDate ? (
-                    <DetailRow label={t("justice.fields.deletionDate")}>
-                      {formatDate(entity.deletionDate)}
-                    </DetailRow>
-                  ) : null}
-                </dl>
+                <div className="divide-y">
+                  {Array.from(factGroups.entries()).map(([groupName, facts]) => (
+                    <FactGroupRow key={groupName} groupName={groupName} facts={facts} />
+                  ))}
+                </div>
               </CardContent>
             </Card>
-
-            {/* Facts grouped by type */}
-            {Array.from(factGroups.entries()).map(([groupName, facts]) => (
-              <Collapsible key={groupName}>
-                <Card>
-                  <CardHeader>
-                    <CollapsibleTrigger className="flex w-full items-center justify-between">
-                      <CardTitle>
-                        {groupName}
-                        <span className="text-muted-foreground ml-2 text-sm font-normal">
-                          ({facts.length})
-                        </span>
-                      </CardTitle>
-                      <ChevronDownIcon className="text-muted-foreground size-5 transition-transform in-data-[state=open]:rotate-180" />
-                    </CollapsibleTrigger>
-                  </CardHeader>
-                  <CollapsibleContent>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {facts.map((fact, i) => (
-                          <FactCard key={i} fact={fact} />
-                        ))}
-                      </div>
-                    </CardContent>
-                  </CollapsibleContent>
-                </Card>
-              </Collapsible>
-            ))}
-          </div>
-
-          {/* Right column: persons + addresses */}
-          <div className="space-y-6">
-            {/* Persons */}
-            {allPersons.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("justice.detail.persons")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {allPersons.map((item, i) => (
-                      <div key={i} className="space-y-0.5">
-                        <PersonInfo person={item.person} />
-                        {item.functionName ? (
-                          <div className="text-muted-foreground text-xs">{item.functionName}</div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {/* Addresses */}
-            {allAddresses.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t("justice.detail.addresses")}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {allAddresses.map((addr, i) => (
-                      <div key={i} className="space-y-0.5">
-                        <div className="text-sm">{addr.fullAddress}</div>
-                        {addr.addressType ? (
-                          <div className="text-muted-foreground text-xs capitalize">
-                            {addr.addressType}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
-          </div>
+          )}
         </div>
+
+        {/* Sbírka listin — lazy loaded */}
+        <JusticeDocumentsSection ico={ico} />
       </div>
     </Container>
   );

@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARES vs Justice — Data Source Comparison</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --surface3: #2e3145;
+    --border: #363a4e;
+    --text: #e2e4ed;
+    --text-muted: #8b8fa3;
+    --text-dim: #5d6177;
+    --ares: #3b82f6;
+    --ares-bg: rgba(59, 130, 246, 0.08);
+    --ares-border: rgba(59, 130, 246, 0.25);
+    --ares-glow: rgba(59, 130, 246, 0.15);
+    --justice: #a855f7;
+    --justice-bg: rgba(168, 85, 247, 0.08);
+    --justice-border: rgba(168, 85, 247, 0.25);
+    --justice-glow: rgba(168, 85, 247, 0.15);
+    --overlap: #22c55e;
+    --overlap-bg: rgba(34, 197, 94, 0.08);
+    --overlap-border: rgba(34, 197, 94, 0.25);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh;
+  }
+  .header {
+    padding: 32px 48px 24px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(59,130,246,0.03) 0%, transparent 100%);
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .header h1 .a { color: var(--ares); }
+  .header h1 .j { color: var(--justice); }
+  .header h1 .v { color: var(--text-dim); font-weight: 400; margin: 0 6px; font-size: 22px; }
+  .header .sub { color: var(--text-muted); font-size: 14px; }
+  .hbadge { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--text-muted); font-family: 'SF Mono', monospace; }
+  .nav { display: flex; gap: 4px; padding: 16px 48px 0; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 100; }
+  .nav-tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--text-muted); background: transparent; border: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; position: relative; top: 1px; font-family: inherit; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--text); border-bottom-color: var(--ares); }
+  .tc { display: inline-block; background: var(--surface3); border-radius: 10px; padding: 1px 7px; font-size: 11px; margin-left: 6px; color: var(--text-dim); }
+  .nav-tab.active .tc { background: rgba(59,130,246,0.15); color: var(--ares); }
+  .main { padding: 32px 48px; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 32px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .stat-card.ac::before { background: var(--ares); }
+  .stat-card.jc::before { background: var(--justice); }
+  .stat-card.oc::before { background: var(--overlap); }
+  .stat-card.nc::before { background: var(--border); }
+  .sl { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 8px; }
+  .sv { font-size: 36px; font-weight: 700; letter-spacing: -1px; }
+  .stat-card.ac .sv { color: var(--ares); }
+  .stat-card.jc .sv { color: var(--justice); }
+  .stat-card.oc .sv { color: var(--overlap); }
+  .ss { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .st { font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .insights-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .ic { background: var(--surface); border-radius: 12px; padding: 24px; border: 1px solid var(--border); }
+  .ic.ai { border-left: 3px solid var(--ares); }
+  .ic.ji { border-left: 3px solid var(--justice); }
+  .itag { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .ic.ai .itag { color: var(--ares); }
+  .ic.ji .itag { color: var(--justice); }
+  .isub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .ilist { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  .ilist li { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--text-muted); }
+  .bar-chart { margin: 16px 0 32px; }
+  .bar-row { display: flex; align-items: center; margin-bottom: 8px; gap: 12px; }
+  .bl { width: 180px; font-size: 12px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+  .bt { flex: 1; height: 24px; background: var(--surface); border-radius: 6px; display: flex; overflow: hidden; }
+  .bf { height: 100%; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; transition: width 0.5s ease; }
+  .bf.abf { background: linear-gradient(90deg, var(--ares), rgba(59,130,246,0.6)); color: #fff; }
+  .bf.jbf { background: linear-gradient(90deg, var(--justice), rgba(168,85,247,0.6)); color: #fff; }
+  .bf.obf { background: linear-gradient(90deg, var(--overlap), rgba(34,197,94,0.6)); color: #fff; }
+  .venn-container { display: flex; justify-content: center; align-items: center; margin: 32px 0; position: relative; height: 360px; }
+  .vc { width: 320px; height: 320px; border-radius: 50%; position: absolute; }
+  .vc.avc { left: calc(50% - 240px); background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, rgba(59,130,246,0.04) 70%); border: 2px solid var(--ares-border); }
+  .vc.jvc { left: calc(50% - 80px); background: radial-gradient(circle, rgba(168,85,247,0.12) 0%, rgba(168,85,247,0.04) 70%); border: 2px solid var(--justice-border); }
+  .vt { position: absolute; text-align: center; z-index: 10; }
+  .vt.avt { left: calc(50% - 280px); width: 160px; }
+  .vt.ovt { left: calc(50% - 80px); width: 160px; }
+  .vt.jvt { left: calc(50% + 120px); width: 160px; }
+  .vt h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .vt.avt h3 { color: var(--ares); }
+  .vt.ovt h3 { color: var(--overlap); }
+  .vt.jvt h3 { color: var(--justice); }
+  .vt ul { list-style: none; font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .fb { padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .fb:hover { border-color: var(--text-dim); color: var(--text); }
+  .fb.active { background: var(--surface3); color: var(--text); border-color: var(--text-dim); }
+  .fb.active.fa { border-color: var(--ares); color: var(--ares); background: var(--ares-bg); }
+  .fb.active.fj { border-color: var(--justice); color: var(--justice); background: var(--justice-bg); }
+  .fb.active.fo { border-color: var(--overlap); color: var(--overlap); background: var(--overlap-bg); }
+  .sb { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; color: var(--text); width: 240px; outline: none; font-family: inherit; }
+  .sb:focus { border-color: var(--ares); }
+  .sb::placeholder { color: var(--text-dim); }
+  .legend { display: flex; gap: 20px; margin-bottom: 16px; font-size: 12px; color: var(--text-muted); }
+  .lgi { display: flex; align-items: center; gap: 6px; }
+  .lgd { width: 10px; height: 10px; border-radius: 50%; }
+  .lgd.ad { background: var(--ares); }
+  .lgd.jd { background: var(--justice); }
+  .lgd.od { background: var(--overlap); }
+  .ctbl { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 32px; font-size: 13px; }
+  .ctbl thead th { background: var(--surface2); padding: 12px 16px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); position: sticky; top: 46px; z-index: 50; }
+  .ctbl thead th:first-child { border-radius: 8px 0 0 0; }
+  .ctbl thead th:last-child { border-radius: 0 8px 0 0; }
+  .ctbl td { padding: 10px 16px; border-bottom: 1px solid rgba(54,58,78,0.4); vertical-align: top; }
+  .ctbl tr:hover td { background: var(--surface); }
+  .fc { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+  .chk { color: var(--overlap); font-size: 14px; }
+  .crs { color: var(--text-dim); font-size: 12px; }
+  .av { color: var(--ares); }
+  .jv { color: var(--justice); }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
+  .badge.ares { background: var(--ares-bg); color: var(--ares); border: 1px solid var(--ares-border); }
+  .badge.justice { background: var(--justice-bg); color: var(--justice); border: 1px solid var(--justice-border); }
+  .badge.both { background: var(--overlap-bg); color: var(--overlap); border: 1px solid var(--overlap-border); }
+  .categories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .cc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color 0.2s; }
+  .cc:hover { border-color: var(--text-dim); }
+  .ch { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+  .ch:hover { background: var(--surface2); }
+  .cn { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .cb { padding: 0; max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .cc.open .cb { max-height: 2000px; }
+  .cbi { padding: 16px 20px; }
+  .fr { display: flex; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(54,58,78,0.5); font-size: 13px; gap: 12px; }
+  .fr:last-child { border-bottom: none; }
+  .fn { flex: 1; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+  .fd { flex: 1.5; color: var(--text-muted); font-size: 12px; }
+  .fs { width: 80px; text-align: center; }
+  .sd { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 2px; }
+  .sd.asd { background: var(--ares); box-shadow: 0 0 6px var(--ares-glow); }
+  .sd.jsd { background: var(--justice); box-shadow: 0 0 6px var(--justice-glow); }
+  .chevron { transition: transform 0.2s; color: var(--text-dim); font-size: 12px; }
+  .cc.open .chevron { transform: rotate(90deg); }
+  .arch-container { display: grid; grid-template-columns: 1fr 120px 1fr; gap: 0; margin-bottom: 32px; align-items: start; }
+  .acol { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .acol.aco { border-color: var(--ares-border); }
+  .acol.jco { border-color: var(--justice-border); }
+  .acen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 80px; gap: 12px; }
+  .aarr { color: var(--text-dim); font-size: 20px; text-align: center; }
+  .alab { writing-mode: vertical-rl; text-orientation: mixed; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); padding: 8px; }
+  .atit { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .atit.aat { color: var(--ares); }
+  .atit.jat { color: var(--justice); }
+  .astp { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .astp:last-child { margin-bottom: 0; }
+  .asn { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .aco .asn { background: var(--ares-bg); color: var(--ares); border: 1px solid var(--ares-border); }
+  .jco .asn { background: var(--justice-bg); color: var(--justice); border: 1px solid var(--justice-border); }
+  .asc { flex: 1; }
+  .ast { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .asd2 { font-size: 12px; color: var(--text-muted); }
+  .astag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-top: 4px; font-family: 'SF Mono', monospace; }
+  .aco .astag { background: var(--ares-bg); color: var(--ares); }
+  .jco .astag { background: var(--justice-bg); color: var(--justice); }
+  @media (max-width: 900px) {
+    .header, .nav, .main { padding-left: 20px; padding-right: 20px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .arch-container { grid-template-columns: 1fr; }
+    .acen { display: none; }
+    .insights-row { grid-template-columns: 1fr; }
+    .categories-grid { grid-template-columns: 1fr; }
+  }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1><span class="a">ARES</span><span class="v">vs</span><span class="j">Justice</span></h1>
+      <div class="sub">Czech Business Registry Data — Source Comparison Dashboard</div>
+    </div>
+    <div class="hbadge">RES Platform · Data Architecture Review</div>
+  </div>
+</div>
+
+<div class="nav" id="nav"></div>
+<div class="main" id="main-content"></div>
+
+<script>
+  // ============ DATA ============
+  const fields = [
+    { name: 'ico', desc: 'Company identification number (8 digits)', ares: true, justice: true, cat: 'Core' },
+    { name: 'businessName / name', desc: 'Official company name', ares: true, justice: true, cat: 'Core' },
+    { name: 'legalForm', desc: 'Legal form code', ares: true, justice: true, cat: 'Core' },
+    { name: 'legalFormName', desc: 'Legal form name (human-readable)', ares: false, justice: true, cat: 'Core' },
+    { name: 'legalFormRos', desc: 'Legal form per ROS register', ares: true, justice: false, cat: 'Core' },
+    { name: 'foundationDate / registration_date', desc: 'Company registration date', ares: true, justice: true, cat: 'Core' },
+    { name: 'terminationDate / deletion_date', desc: 'Company termination/deletion date', ares: true, justice: true, cat: 'Core' },
+    { name: 'is_active', desc: 'Boolean active status', ares: false, justice: true, cat: 'Core' },
+    { name: 'updateDate', desc: 'Last data update date', ares: true, justice: false, cat: 'Core' },
+    { name: 'vatId', desc: 'Czech VAT ID', ares: true, justice: false, cat: 'Core' },
+    { name: 'slovakVatId', desc: 'Slovak VAT ID', ares: true, justice: false, cat: 'Core' },
+    { name: 'taxOffice', desc: 'Assigned tax office', ares: true, justice: false, cat: 'Core' },
+    { name: 'primarySource', desc: 'Source register (ros, vr, res)', ares: true, justice: false, cat: 'Core' },
+    { name: 'isPrimaryRecord', desc: 'Primary record flag', ares: true, justice: false, cat: 'Core' },
+    { name: 'countryCode', desc: 'Country code', ares: true, justice: false, cat: 'Address' },
+    { name: 'countryName / country', desc: 'Country name', ares: true, justice: true, cat: 'Address' },
+    { name: 'regionCode', desc: 'Region code (14 regions)', ares: true, justice: false, cat: 'Address' },
+    { name: 'regionName', desc: 'Region name', ares: true, justice: false, cat: 'Address' },
+    { name: 'districtCode', desc: 'District code (76 districts)', ares: true, justice: false, cat: 'Address' },
+    { name: 'districtName / district', desc: 'District name', ares: true, justice: true, cat: 'Address' },
+    { name: 'municipalityCode', desc: 'Municipality code', ares: true, justice: false, cat: 'Address' },
+    { name: 'municipalityName / municipality', desc: 'Municipality name', ares: true, justice: true, cat: 'Address' },
+    { name: 'adminDistrictCode', desc: 'Administrative district code', ares: true, justice: false, cat: 'Address' },
+    { name: 'adminDistrictName', desc: 'Administrative district name', ares: true, justice: false, cat: 'Address' },
+    { name: 'cityDistrictCode', desc: 'City district code', ares: true, justice: false, cat: 'Address' },
+    { name: 'cityDistrictName', desc: 'City district name', ares: true, justice: false, cat: 'Address' },
+    { name: 'cityPartCode', desc: 'City part code', ares: true, justice: false, cat: 'Address' },
+    { name: 'cityPartName / city_part', desc: 'City part name', ares: true, justice: true, cat: 'Address' },
+    { name: 'streetCode', desc: 'Street code', ares: true, justice: false, cat: 'Address' },
+    { name: 'streetName / street', desc: 'Street name', ares: true, justice: true, cat: 'Address' },
+    { name: 'buildingNumber / house_number', desc: 'House number', ares: true, justice: true, cat: 'Address' },
+    { name: 'buildingNumberType', desc: 'House number type', ares: true, justice: false, cat: 'Address' },
+    { name: 'orientationNumber', desc: 'Orientation number', ares: true, justice: true, cat: 'Address' },
+    { name: 'orientationNumberLetter', desc: 'Orientation number letter suffix', ares: true, justice: false, cat: 'Address' },
+    { name: 'addressSupplement', desc: 'Address supplement (e.g. budova B)', ares: true, justice: false, cat: 'Address' },
+    { name: 'municipalityPartCode', desc: 'Municipality part code', ares: true, justice: false, cat: 'Address' },
+    { name: 'municipalityPartName', desc: 'Municipality part name', ares: true, justice: false, cat: 'Address' },
+    { name: 'addressPointCode', desc: 'Geocodable address point code', ares: true, justice: false, cat: 'Address' },
+    { name: 'postalCode', desc: 'Postal code', ares: true, justice: true, cat: 'Address' },
+    { name: 'postalCodeText', desc: 'Formatted postal code (170 00)', ares: true, justice: false, cat: 'Address' },
+    { name: 'textAddress / full_address', desc: 'Full text address string', ares: true, justice: true, cat: 'Address' },
+    { name: 'addressNumberTo', desc: 'Address range end number', ares: true, justice: false, cat: 'Address' },
+    { name: 'deliveryAddress (3 lines)', desc: 'Delivery address lines 1-3', ares: true, justice: false, cat: 'Address' },
+    { name: 'rosStatus', desc: 'ROS register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'businessRegisterStatus', desc: 'Business register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'resStatus', desc: 'RES register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'tradeRegisterStatus', desc: 'Trade register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'nrpzsStatus', desc: 'NRPZS (healthcare) status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'rpshStatus', desc: 'RPSH status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'rcnsStatus', desc: 'RCNS status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'szrStatus', desc: 'SZR status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'vatStatus', desc: 'VAT register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'slovakVatStatus', desc: 'Slovak VAT status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'sdStatus', desc: 'SD register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'irStatus', desc: 'IR register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'ceuStatus', desc: 'CEU register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'rsStatus', desc: 'RS register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'redStatus', desc: 'RED register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'monitorStatus', desc: 'Monitor register status', ares: true, justice: false, cat: 'Registers' },
+    { name: 'czNace', desc: 'Current NACE activity codes (array)', ares: true, justice: false, cat: 'Activities' },
+    { name: 'czNace2008', desc: 'Historical NACE 2008 codes', ares: true, justice: false, cat: 'Activities' },
+    { name: 'predmet_podnikani', desc: 'Business activity descriptions (text)', ares: false, justice: true, cat: 'Activities' },
+    { name: 'first_name', desc: 'Person first name', ares: false, justice: true, cat: 'People' },
+    { name: 'last_name', desc: 'Person last name', ares: false, justice: true, cat: 'People' },
+    { name: 'birth_date', desc: 'Person date of birth', ares: false, justice: true, cat: 'People' },
+    { name: 'titles (before/after)', desc: 'Academic/professional titles', ares: false, justice: true, cat: 'People' },
+    { name: 'entity_name', desc: 'Legal entity name (if not person)', ares: false, justice: true, cat: 'People' },
+    { name: 'entity_ico', desc: 'Legal entity ICO (if not person)', ares: false, justice: true, cat: 'People' },
+    { name: 'function_name', desc: 'Role/function (jednatel, clen)', ares: false, justice: true, cat: 'People' },
+    { name: 'function_from / function_to', desc: 'Function validity period', ares: false, justice: true, cat: 'People' },
+    { name: 'membership_from / to', desc: 'Membership period in body', ares: false, justice: true, cat: 'People' },
+    { name: 'court_code', desc: 'Court numeric code', ares: false, justice: true, cat: 'Legal' },
+    { name: 'court_name', desc: 'Court name (7 locations)', ares: false, justice: true, cat: 'Legal' },
+    { name: 'file_section', desc: 'File section (C, B, A)', ares: false, justice: true, cat: 'Legal' },
+    { name: 'file_number', desc: 'File number', ares: false, justice: true, cat: 'Legal' },
+    { name: 'file_reference', desc: 'Full file reference string', ares: false, justice: true, cat: 'Legal' },
+    { name: 'insolvency (KONKURS)', desc: 'Bankruptcy proceedings fact', ares: false, justice: true, cat: 'Legal' },
+    { name: 'insolvency (INSOLVENCNI)', desc: 'Insolvency proceedings fact', ares: false, justice: true, cat: 'Legal' },
+    { name: 'liquidator (LIKVIDATOR)', desc: 'Liquidator assignment fact', ares: false, justice: true, cat: 'Legal' },
+    { name: 'zakladni_kapital', desc: 'Registered capital amount', ares: false, justice: true, cat: 'Financial' },
+    { name: 'spolecnik', desc: 'Shareholder/partner info + shares', ares: false, justice: true, cat: 'Financial' },
+    { name: 'statutarni_organ', desc: 'Statutory body definition', ares: false, justice: true, cat: 'Financial' },
+    { name: 'institutionalSector2010', desc: 'Institutional sector classification', ares: true, justice: false, cat: 'Statistical' },
+    { name: 'employeeCountCategory', desc: 'Employee count category', ares: true, justice: false, cat: 'Statistical' },
+  ];
+
+  const categories = [
+    { id: 'Core', label: 'Core Company Data', emoji: '\u{1F3E2}', desc: 'Identity, legal form, dates, tax IDs' },
+    { id: 'Address', label: 'Address Data', emoji: '\u{1F4CD}', desc: 'Headquarters, delivery, geocoding' },
+    { id: 'Registers', label: 'Registration Statuses', emoji: '\u{1F4CB}', desc: '16 government register statuses' },
+    { id: 'Activities', label: 'Activity Classification', emoji: '\u{1F3ED}', desc: 'NACE codes vs text descriptions' },
+    { id: 'People', label: 'People & Roles', emoji: '\u{1F464}', desc: 'Directors, members, shareholders' },
+    { id: 'Legal', label: 'Legal & Court Data', emoji: '\u{2696}\u{FE0F}', desc: 'Court files, insolvency, liquidation' },
+    { id: 'Financial', label: 'Financial Data', emoji: '\u{1F4B0}', desc: 'Capital, shares, statutory bodies' },
+    { id: 'Statistical', label: 'Statistical Data', emoji: '\u{1F4CA}', desc: 'Sector classification, employee count' },
+  ];
+
+  // ============ STATE ============
+  const state = { activeTab: 'overview', filter: 'all', search: '', openCats: new Set() };
+
+  function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.textContent;
+  }
+
+  function getSource(f) {
+    if (f.ares && f.justice) return 'both';
+    return f.ares ? 'ares' : 'justice';
+  }
+
+  // ============ BUILD NAV ============
+  function buildNav() {
+    const nav = document.getElementById('nav');
+    const tabs = [
+      { id: 'overview', label: 'Overview' },
+      { id: 'fields', label: 'Field-by-Field', count: fields.length },
+      { id: 'architecture', label: 'Architecture' },
+      { id: 'categories', label: 'By Category', count: categories.filter(c => fields.some(f => f.cat === c.id)).length },
+    ];
+    tabs.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'nav-tab' + (t.id === state.activeTab ? ' active' : '');
+      btn.dataset.tab = t.id;
+      btn.textContent = t.label;
+      if (t.count) {
+        const sp = document.createElement('span');
+        sp.className = 'tc';
+        sp.id = t.id === 'fields' ? 'field-count' : '';
+        sp.textContent = t.count;
+        btn.appendChild(sp);
+      }
+      btn.addEventListener('click', () => switchTab(t.id));
+      nav.appendChild(btn);
+    });
+  }
+
+  function switchTab(id) {
+    state.activeTab = id;
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+  }
+
+  // ============ BUILD OVERVIEW ============
+  function buildOverview() {
+    const panel = document.createElement('div');
+    panel.className = 'panel active';
+    panel.id = 'panel-overview';
+
+    // Stats
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'stats-row';
+    const statsData = [
+      { cls: 'ac', label: 'ARES FIELDS', value: '~68', sub: '29 address + 16 register + 13 core + 10 other' },
+      { cls: 'jc', label: 'JUSTICE FIELDS', value: '~35', sub: '12 address + 7 core + people + facts' },
+      { cls: 'oc', label: 'OVERLAP', value: '~10', sub: 'ICO, name, legal form, dates, address basics' },
+      { cls: 'nc', label: 'ARES UNIQUE', value: '~58', sub: 'Geo codes, VAT, NACE, 16 register statuses' },
+      { cls: 'nc', label: 'JUSTICE UNIQUE', value: '~25', sub: 'People, roles, capital, insolvency, court' },
+    ];
+    statsData.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'stat-card ' + s.cls;
+      const lbl = document.createElement('div'); lbl.className = 'sl'; lbl.textContent = s.label;
+      const val = document.createElement('div'); val.className = 'sv'; val.textContent = s.value;
+      const sub = document.createElement('div'); sub.className = 'ss'; sub.textContent = s.sub;
+      card.append(lbl, val, sub);
+      statsDiv.appendChild(card);
+    });
+    panel.appendChild(statsDiv);
+
+    // Insights
+    const insRow = document.createElement('div');
+    insRow.className = 'insights-row';
+
+    const aresItems = ['29-field geocodable addresses', 'NACE activity codes', '16 register statuses', 'Czech + Slovak VAT IDs', 'Tax office assignment', 'Employee count category', 'Region/district/municipality codes', 'Real-time API \u00B7 15s timeout'];
+    const justiceItems = ['Directors, statutory members', 'Shareholders & capital', 'Court file references', '42 fact types (insolvency, liquidation...)', 'Full change history timeline', 'Business activity descriptions', 'Hierarchical sub-facts', 'Bulk XML import \u2192 PostgreSQL'];
+
+    [{ cls: 'ai', tag: '"Where & What"', sub: 'Administrative, geographic & regulatory data', items: aresItems },
+     { cls: 'ji', tag: '"Who & When"', sub: 'People, ownership, legal & corporate history', items: justiceItems }].forEach(ins => {
+      const card = document.createElement('div');
+      card.className = 'ic ' + ins.cls;
+      const tagEl = document.createElement('div'); tagEl.className = 'itag'; tagEl.textContent = ins.tag;
+      const subEl = document.createElement('div'); subEl.className = 'isub'; subEl.textContent = ins.sub;
+      const list = document.createElement('ul'); list.className = 'ilist';
+      ins.items.forEach(item => {
+        const li = document.createElement('li'); li.textContent = item; list.appendChild(li);
+      });
+      card.append(tagEl, subEl, list);
+      insRow.appendChild(card);
+    });
+    panel.appendChild(insRow);
+
+    // Bar chart
+    const barTitle = document.createElement('div');
+    barTitle.className = 'st';
+    barTitle.textContent = 'Field Distribution by Category';
+    panel.appendChild(barTitle);
+
+    const barChart = document.createElement('div');
+    barChart.className = 'bar-chart';
+    const maxF = 30;
+    categories.forEach(c => {
+      const catFields = fields.filter(f => f.cat === c.id);
+      if (catFields.length === 0) return;
+      const aOnly = catFields.filter(f => f.ares && !f.justice).length;
+      const jOnly = catFields.filter(f => f.justice && !f.ares).length;
+      const bth = catFields.filter(f => f.ares && f.justice).length;
+
+      const row = document.createElement('div'); row.className = 'bar-row';
+      const label = document.createElement('div'); label.className = 'bl'; label.textContent = c.emoji + ' ' + c.label;
+      const track = document.createElement('div'); track.className = 'bt';
+
+      if (aOnly > 0) {
+        const fill = document.createElement('div'); fill.className = 'bf abf';
+        fill.style.width = ((aOnly / maxF) * 100) + '%'; fill.textContent = aOnly;
+        track.appendChild(fill);
+      }
+      if (bth > 0) {
+        const fill = document.createElement('div'); fill.className = 'bf obf';
+        fill.style.width = ((bth / maxF) * 100) + '%'; fill.textContent = bth;
+        track.appendChild(fill);
+      }
+      if (jOnly > 0) {
+        const fill = document.createElement('div'); fill.className = 'bf jbf';
+        fill.style.width = ((jOnly / maxF) * 100) + '%'; fill.textContent = jOnly;
+        track.appendChild(fill);
+      }
+      row.append(label, track);
+      barChart.appendChild(row);
+    });
+    panel.appendChild(barChart);
+
+    // Venn
+    const vennTitle = document.createElement('div');
+    vennTitle.className = 'st';
+    vennTitle.textContent = 'Overlap Diagram';
+    panel.appendChild(vennTitle);
+
+    const venn = document.createElement('div');
+    venn.className = 'venn-container';
+
+    const aCircle = document.createElement('div'); aCircle.className = 'vc avc';
+    const jCircle = document.createElement('div'); jCircle.className = 'vc jvc';
+    venn.append(aCircle, jCircle);
+
+    const vennData = [
+      { cls: 'avt', title: 'ARES Only', color: 'ares', top: 40, items: ['VAT IDs (CZ + SK)', 'Tax office', '16 register statuses', 'NACE codes', 'Address point codes', 'Region/district codes', 'Delivery address', 'Statistical data', 'Primary source register'] },
+      { cls: 'ovt', title: 'Both', color: 'overlap', top: 60, items: ['ICO', 'Company name', 'Legal form', 'Registration date', 'Termination date', 'Active status', 'Street, city, postal', 'House number'] },
+      { cls: 'jvt', title: 'Justice Only', color: 'justice', top: 40, items: ['Directors & members', 'Shareholders', 'Registered capital', 'Court references', 'Insolvency status', 'Liquidator info', 'Business activities (text)', 'Full change history', 'Sub-fact hierarchy'] },
+    ];
+    vennData.forEach(v => {
+      const div = document.createElement('div');
+      div.className = 'vt ' + v.cls;
+      div.style.top = v.top + 'px';
+      const h3 = document.createElement('h3'); h3.textContent = v.title;
+      const ul = document.createElement('ul');
+      v.items.forEach(i => { const li = document.createElement('li'); li.textContent = i; ul.appendChild(li); });
+      div.append(h3, ul);
+      venn.appendChild(div);
+    });
+    panel.appendChild(venn);
+    return panel;
+  }
+
+  // ============ BUILD FIELDS ============
+  function buildFields() {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'panel-fields';
+
+    // Filter bar
+    const topBar = document.createElement('div');
+    topBar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;';
+
+    const filterBar = document.createElement('div');
+    filterBar.className = 'filter-bar';
+    [{ f: 'all', l: 'All', c: '' }, { f: 'ares', l: 'ARES Only', c: 'fa' }, { f: 'justice', l: 'Justice Only', c: 'fj' }, { f: 'both', l: 'Both Sources', c: 'fo' }].forEach(fb => {
+      const btn = document.createElement('button');
+      btn.className = 'fb' + (fb.f === 'all' ? ' active' : '') + (fb.c ? ' ' + fb.c : '');
+      btn.dataset.filter = fb.f;
+      btn.textContent = fb.l;
+      btn.addEventListener('click', () => {
+        state.filter = fb.f;
+        filterBar.querySelectorAll('.fb').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderFieldsTable();
+      });
+      filterBar.appendChild(btn);
+    });
+
+    const search = document.createElement('input');
+    search.type = 'text'; search.className = 'sb'; search.placeholder = 'Search fields\u2026';
+    search.addEventListener('input', () => { state.search = search.value; renderFieldsTable(); });
+
+    topBar.append(filterBar, search);
+    panel.appendChild(topBar);
+
+    // Legend
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    [{ c: 'ad', l: 'ARES' }, { c: 'jd', l: 'Justice' }, { c: 'od', l: 'Both' }].forEach(lg => {
+      const item = document.createElement('div'); item.className = 'lgi';
+      const dot = document.createElement('div'); dot.className = 'lgd ' + lg.c;
+      const txt = document.createTextNode(lg.l);
+      item.append(dot, txt);
+      legend.appendChild(item);
+    });
+    panel.appendChild(legend);
+
+    // Table
+    const table = document.createElement('table');
+    table.className = 'ctbl';
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    ['Field', 'Description', 'ARES', 'Justice', 'Category'].forEach((h, i) => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      th.style.width = ['22%', '34%', '16%', '16%', '12%'][i];
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    tbody.id = 'fields-tbody';
+    table.appendChild(tbody);
+    panel.appendChild(table);
+
+    return panel;
+  }
+
+  function renderFieldsTable() {
+    const tbody = document.getElementById('fields-tbody');
+    let filtered = fields.slice();
+
+    if (state.filter === 'ares') filtered = filtered.filter(f => f.ares && !f.justice);
+    else if (state.filter === 'justice') filtered = filtered.filter(f => f.justice && !f.ares);
+    else if (state.filter === 'both') filtered = filtered.filter(f => f.ares && f.justice);
+
+    if (state.search) {
+      const s = state.search.toLowerCase();
+      filtered = filtered.filter(f => f.name.toLowerCase().includes(s) || f.desc.toLowerCase().includes(s) || f.cat.toLowerCase().includes(s));
+    }
+
+    const fcEl = document.getElementById('field-count');
+    if (fcEl) fcEl.textContent = filtered.length;
+
+    // Clear safely
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+    filtered.forEach(f => {
+      const tr = document.createElement('tr');
+
+      const td1 = document.createElement('td'); td1.className = 'fc'; td1.textContent = f.name;
+      const td2 = document.createElement('td'); td2.style.color = 'var(--text-muted)'; td2.textContent = f.desc;
+      const td3 = document.createElement('td'); td3.style.textAlign = 'center';
+      const sp3 = document.createElement('span'); sp3.className = f.ares ? 'chk' : 'crs'; sp3.textContent = f.ares ? '\u25CF' : '\u2014';
+      td3.appendChild(sp3);
+      const td4 = document.createElement('td'); td4.style.textAlign = 'center';
+      const sp4 = document.createElement('span');
+      if (f.justice) { sp4.className = 'chk'; sp4.style.color = 'var(--justice)'; sp4.textContent = '\u25CF'; }
+      else { sp4.className = 'crs'; sp4.textContent = '\u2014'; }
+      td4.appendChild(sp4);
+      const td5 = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + getSource(f);
+      badge.textContent = f.cat;
+      td5.appendChild(badge);
+
+      tr.append(td1, td2, td3, td4, td5);
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ============ BUILD ARCHITECTURE ============
+  function buildArchitecture() {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'panel-architecture';
+
+    const title = document.createElement('div');
+    title.className = 'st'; title.style.marginBottom = '24px';
+    title.textContent = 'Data Pipeline Architecture';
+    panel.appendChild(title);
+
+    const container = document.createElement('div');
+    container.className = 'arch-container';
+
+    // ARES column
+    const aresSteps = [
+      { n: '1', t: 'Frontend Request', d: 'React Query hook triggers POST/GET via Next.js', tag: 'useAresSearch() \u00B7 useAresSubjectByIco()' },
+      { n: '2', t: 'Django REST View', d: 'Validates input via DRF serializers, rate-limits 12 req/min', tag: 'AresSearchView \u00B7 AresSubjectDetailView' },
+      { n: '3', t: 'Redis Cache Check', d: 'Search: 15min TTL \u00B7 Detail: 1hr TTL. Hash-based keys.', tag: 'AresService.get_subject() \u00B7 .search()' },
+      { n: '4', t: 'External API Call', d: 'On cache miss \u2192 HTTP to ares.gov.cz with 15s timeout', tag: 'AresClient \u00B7 requests.Session()' },
+      { n: '5', t: 'Parse CZ \u2192 EN', d: 'Transforms Czech field names to English via pure functions', tag: 'parser.py \u00B7 parse_economic_subject()' },
+      { n: '6', t: 'Cache + Store + Return', d: 'Store in Redis cache + EconomicSubject model (raw_data JSONField)', tag: 'EconomicSubject.objects.update_or_create()' },
+    ];
+
+    const justiceSteps = [
+      { n: '1', t: 'Bulk Download', d: 'Fetch .xml.gz archives from dataor.justice.cz via CKAN API', tag: 'JusticeDataDownloader \u00B7 requests' },
+      { n: '2', t: 'XML Parsing', d: 'Decompress + parse XML into structured Python objects', tag: 'JusticeXMLParser \u00B7 lxml.etree' },
+      { n: '3', t: 'Database Import', d: 'Bulk upsert into PostgreSQL models with FK relationships', tag: 'Company \u00B7 Person \u00B7 CompanyPerson \u00B7 Fact' },
+      { n: '4', t: 'Management Command', d: 'Django management command orchestrates full pipeline', tag: 'python manage.py import_justice' },
+      { n: '5', t: 'Django REST API', d: 'Views + serializers expose stored data via REST endpoints', tag: 'CompanyViewSet \u00B7 PersonViewSet' },
+      { n: '6', t: 'Frontend Queries', d: 'React Query hooks fetch from local DB (fast, no external calls)', tag: 'useJusticeCompany() \u00B7 useJusticePerson()' },
+    ];
+
+    function buildCol(cls, titleText, titleCls, steps) {
+      const col = document.createElement('div');
+      col.className = 'acol ' + cls;
+      const t = document.createElement('div'); t.className = 'atit ' + titleCls; t.textContent = titleText;
+      col.appendChild(t);
+      steps.forEach(s => {
+        const step = document.createElement('div'); step.className = 'astp';
+        const num = document.createElement('div'); num.className = 'asn'; num.textContent = s.n;
+        const content = document.createElement('div'); content.className = 'asc';
+        const st = document.createElement('div'); st.className = 'ast'; st.textContent = s.t;
+        const sd = document.createElement('div'); sd.className = 'asd2'; sd.textContent = s.d;
+        const stag = document.createElement('div'); stag.className = 'astag'; stag.textContent = s.tag;
+        content.append(st, sd, stag);
+        step.append(num, content);
+        col.appendChild(step);
+      });
+      return col;
+    }
+
+    const aresCol = buildCol('aco', '\u26A1 ARES Pipeline', 'aat', aresSteps);
+    const justiceCol = buildCol('jco', '\u{1F4E6} Justice Pipeline', 'jat', justiceSteps);
+
+    const center = document.createElement('div');
+    center.className = 'acen';
+    const arr1 = document.createElement('div'); arr1.className = 'aarr'; arr1.textContent = '\u2190';
+    const lab = document.createElement('div'); lab.className = 'alab'; lab.textContent = 'MERGE ON ICO';
+    const arr2 = document.createElement('div'); arr2.className = 'aarr'; arr2.textContent = '\u2192';
+    center.append(arr1, lab, arr2);
+
+    container.append(aresCol, center, justiceCol);
+    panel.appendChild(container);
+
+    // Comparison table
+    const compTitle = document.createElement('div');
+    compTitle.className = 'st'; compTitle.style.marginTop = '40px';
+    compTitle.textContent = 'Key Architecture Differences';
+    panel.appendChild(compTitle);
+
+    const table = document.createElement('table');
+    table.className = 'ctbl';
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    ['Aspect', 'ARES', 'Justice'].forEach(h => {
+      const th = document.createElement('th'); th.textContent = h; headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const archDiffs = [
+      ['Data Freshness', 'Real-time (live API calls)', 'Periodic bulk import'],
+      ['Fetch Pattern', 'On-demand per request', 'Full dataset download'],
+      ['Storage', 'Redis cache (TTL) + JSONField', 'PostgreSQL (normalized tables)'],
+      ['Latency', '~1-15s (API call or cache hit)', '~10-50ms (local DB query)'],
+      ['Rate Limits', '12 req/60s (throttled)', 'None (local data)'],
+      ['Availability', 'Depends on ares.gov.cz uptime', 'Always available (local)'],
+      ['Data Format', 'JSON REST (Czech \u2192 English parsed)', 'XML \u2192 PostgreSQL models'],
+      ['Schema', 'Flat (1 record per ICO)', 'Relational (Company \u2194 Person \u2194 Fact)'],
+    ];
+
+    const tbody = document.createElement('tbody');
+    archDiffs.forEach(row => {
+      const tr = document.createElement('tr');
+      row.forEach((cell, i) => {
+        const td = document.createElement('td');
+        if (i === 0) td.style.fontWeight = '600';
+        else if (i === 1) td.className = 'av';
+        else td.className = 'jv';
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    panel.appendChild(table);
+
+    return panel;
+  }
+
+  // ============ BUILD CATEGORIES ============
+  function buildCategories() {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'panel-categories';
+
+    const title = document.createElement('div');
+    title.className = 'st'; title.style.marginBottom = '20px';
+    title.textContent = 'Data Categories Breakdown';
+    panel.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'categories-grid';
+    grid.id = 'categories-grid';
+    panel.appendChild(grid);
+
+    return panel;
+  }
+
+  function renderCategories() {
+    const grid = document.getElementById('categories-grid');
+    while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+    categories.forEach(c => {
+      const catFields = fields.filter(f => f.cat === c.id);
+      if (catFields.length === 0) return;
+
+      const aOnly = catFields.filter(f => f.ares && !f.justice).length;
+      const jOnly = catFields.filter(f => f.justice && !f.ares).length;
+      const bth = catFields.filter(f => f.ares && f.justice).length;
+      const isOpen = state.openCats.has(c.id);
+
+      const card = document.createElement('div');
+      card.className = 'cc' + (isOpen ? ' open' : '');
+      card.dataset.cat = c.id;
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'ch';
+      header.addEventListener('click', () => {
+        if (state.openCats.has(c.id)) state.openCats.delete(c.id);
+        else state.openCats.add(c.id);
+        renderCategories();
+      });
+
+      const name = document.createElement('div');
+      name.className = 'cn';
+      const emoji = document.createElement('span');
+      emoji.textContent = c.emoji;
+      const nameText = document.createElement('span');
+      const countSpan = document.createElement('span');
+      countSpan.style.cssText = 'color:var(--text-dim);font-weight:400;font-size:12px;';
+      countSpan.textContent = ' (' + catFields.length + ' fields)';
+      nameText.textContent = c.label;
+      nameText.appendChild(countSpan);
+      name.append(emoji, nameText);
+
+      const rightSide = document.createElement('div');
+      rightSide.style.cssText = 'display:flex;align-items:center;gap:8px;';
+      const badges = document.createElement('div');
+      badges.style.cssText = 'display:flex;gap:6px;';
+
+      if (aOnly + bth > 0) {
+        const b = document.createElement('span'); b.className = 'badge ares';
+        b.textContent = 'ARES ' + (aOnly + bth); badges.appendChild(b);
+      }
+      if (jOnly + bth > 0) {
+        const b = document.createElement('span'); b.className = 'badge justice';
+        b.textContent = 'Justice ' + (jOnly + bth); badges.appendChild(b);
+      }
+      if (bth > 0) {
+        const b = document.createElement('span'); b.className = 'badge both';
+        b.textContent = 'Both ' + bth; badges.appendChild(b);
+      }
+
+      const chev = document.createElement('span');
+      chev.className = 'chevron';
+      chev.textContent = '\u25B6';
+
+      rightSide.append(badges, chev);
+      header.append(name, rightSide);
+      card.appendChild(header);
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'cb';
+      const inner = document.createElement('div');
+      inner.className = 'cbi';
+
+      const desc = document.createElement('div');
+      desc.style.cssText = 'color:var(--text-dim);font-size:12px;margin-bottom:12px;';
+      desc.textContent = c.desc;
+      inner.appendChild(desc);
+
+      catFields.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'fr';
+
+        const src = document.createElement('div');
+        src.className = 'fs';
+        if (f.ares) { const d = document.createElement('span'); d.className = 'sd asd'; src.appendChild(d); }
+        else { const sp = document.createElement('span'); sp.style.cssText = 'display:inline-block;width:8px;'; src.appendChild(sp); }
+        if (f.justice) { const d = document.createElement('span'); d.className = 'sd jsd'; src.appendChild(d); }
+        else { const sp = document.createElement('span'); sp.style.cssText = 'display:inline-block;width:8px;'; src.appendChild(sp); }
+
+        const fname = document.createElement('div');
+        fname.className = 'fn'; fname.textContent = f.name;
+        const fdesc = document.createElement('div');
+        fdesc.className = 'fd'; fdesc.textContent = f.desc;
+
+        row.append(src, fname, fdesc);
+        inner.appendChild(row);
+      });
+
+      body.appendChild(inner);
+      card.appendChild(body);
+      grid.appendChild(card);
+    });
+  }
+
+  // ============ INIT ============
+  buildNav();
+  const mainEl = document.getElementById('main-content');
+  mainEl.append(buildOverview(), buildFields(), buildArchitecture(), buildCategories());
+  renderFieldsTable();
+  renderCategories();
+</script>
+</body>
+</html>

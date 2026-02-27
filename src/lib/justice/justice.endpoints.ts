@@ -7,6 +7,7 @@ import type {
   JusticeHistoryEntry,
   JusticePersonWithFact,
   JusticeAddress,
+  JusticeDocumentList,
 } from "./justice.types";
 
 /**
@@ -126,6 +127,21 @@ export const justiceEndpoints = {
     try {
       const response = await apiClient.get<JusticeAddress[]>(
         `/justice/entities/${ico}/addresses/`
+      );
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error as AxiosError);
+    }
+  },
+
+  /**
+   * Get sbírka listin documents for an entity
+   * GET /justice/entities/{ico}/documents/
+   */
+  async getDocuments(ico: string): Promise<JusticeDocumentList> {
+    try {
+      const response = await apiClient.get<JusticeDocumentList>(
+        `/justice/entities/${ico}/documents/`
       );
       return response.data;
     } catch (error) {

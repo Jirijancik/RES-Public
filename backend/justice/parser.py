@@ -117,6 +117,22 @@ def parse_sync_status(data: dict) -> dict:
     }
 
 
+def parse_document_list(documents: list[dict]) -> list[dict]:
+    """Transform scraped document data to API response shape."""
+    return [
+        {
+            "documentId": doc["documentId"],
+            "subjektId": doc["subjektId"],
+            "spisId": doc["spisId"],
+            "documentNumber": doc.get("documentNumber", ""),
+            "documentType": doc.get("documentType", ""),
+            "files": doc.get("files", []),
+            "financialData": doc.get("financialData"),
+        }
+        for doc in documents
+    ]
+
+
 # --- Internal helpers ---
 
 

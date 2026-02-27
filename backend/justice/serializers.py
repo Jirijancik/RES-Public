@@ -148,3 +148,57 @@ class SyncStatusSerializer(serializers.Serializer):
     pendingDatasets = serializers.IntegerField()
     lastSyncAt = serializers.CharField(allow_null=True, required=False)
     totalEntities = serializers.IntegerField()
+
+
+# --- Sbírka listin (document collection) serializers ---
+
+
+class DocumentFileSerializer(serializers.Serializer):
+    downloadId = serializers.CharField()
+    filename = serializers.CharField()
+    sizeKb = serializers.IntegerField(allow_null=True, required=False)
+    pageCount = serializers.IntegerField(allow_null=True, required=False)
+    isXml = serializers.BooleanField()
+    isPdf = serializers.BooleanField()
+
+
+class FinancialRowSerializer(serializers.Serializer):
+    row = serializers.IntegerField()
+    label = serializers.CharField(allow_blank=True)
+    brutto = serializers.IntegerField(allow_null=True, required=False)
+    korekce = serializers.IntegerField(allow_null=True, required=False)
+    netto = serializers.IntegerField(allow_null=True, required=False)
+    nettoMin = serializers.IntegerField(allow_null=True, required=False)
+    current = serializers.IntegerField(allow_null=True, required=False)
+    previous = serializers.IntegerField(allow_null=True, required=False)
+
+
+class FinancialMetadataSerializer(serializers.Serializer):
+    periodFrom = serializers.CharField()
+    periodTo = serializers.CharField()
+    currency = serializers.CharField()
+    unit = serializers.CharField()
+    rozsahRozvaha = serializers.CharField(allow_blank=True)
+    rozsahVzz = serializers.CharField(allow_blank=True)
+
+
+class FinancialDataSerializer(serializers.Serializer):
+    metadata = FinancialMetadataSerializer()
+    aktiva = FinancialRowSerializer(many=True)
+    pasiva = FinancialRowSerializer(many=True)
+    vzz = FinancialRowSerializer(many=True)
+
+
+class DocumentSerializer(serializers.Serializer):
+    documentId = serializers.CharField()
+    subjektId = serializers.CharField()
+    spisId = serializers.CharField()
+    documentNumber = serializers.CharField(allow_blank=True)
+    documentType = serializers.CharField(allow_blank=True)
+    files = DocumentFileSerializer(many=True)
+    financialData = FinancialDataSerializer(allow_null=True, required=False)
+
+
+class DocumentListSerializer(serializers.Serializer):
+    subjektId = serializers.CharField()
+    documents = DocumentSerializer(many=True)

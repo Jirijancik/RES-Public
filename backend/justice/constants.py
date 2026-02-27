@@ -129,3 +129,9 @@ FACT_TYPE_CODES = {
     "UCEL": "purpose",
     "VEDLEJSI_CINNOST": "secondary_activity",
 }
+
+# --- Sbírka listin scraping ---
+
+SBIRKA_LISTIN_CACHE_TTL = 3600  # 1 hour — document lists don't change often
+SBIRKA_FINANCIAL_CACHE_TTL = 86400 * 30  # 30 days — financial data is immutable once filed
+SBIRKA_REQUEST_TIMEOUT = 15  # seconds per page scrape

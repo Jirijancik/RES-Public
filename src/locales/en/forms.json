@@ -127,6 +127,30 @@
       "active": "Active",
       "deleted": "Deleted",
       "all": "All"
+    },
+    "documents": {
+      "title": "Document Collection",
+      "load": "Load document collection",
+      "loading": "Loading documents from or.justice.cz...",
+      "error": "Failed to load document collection",
+      "viewOnJustice": "View on or.justice.cz",
+      "noDocuments": "No documents found",
+      "count": "{{count}} documents",
+      "files": "Files",
+      "financials": {
+        "item": "Item",
+        "brutto": "Gross",
+        "korekce": "Adjustment",
+        "netto": "Net",
+        "nettoMin": "Previous period",
+        "current": "Current period",
+        "previous": "Previous period",
+        "period": "Period: {{from}} — {{to}}",
+        "inThousands": "in thousands",
+        "aktiva": "Balance Sheet — Assets",
+        "pasiva": "Balance Sheet — Liabilities & Equity",
+        "vzz": "Income Statement"
+      }
     }
   },
   "labels": {

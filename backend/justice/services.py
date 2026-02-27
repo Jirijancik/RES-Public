@@ -18,24 +18,27 @@ from django.utils import timezone
 from core.exceptions import ExternalAPIError
 from core.services.cache import CacheService
 from core.throttles import GlobalOutboundThrottle
-from .client import JusticeCKANClient, justice_ckan_client
+from .client import JusticeCKANClient, justice_ckan_client, justice_sbirka_client
 from .constants import (
     DATASET_LIST_CACHE_TTL,
     ENTITY_DETAIL_CACHE_TTL,
     ENTITY_SEARCH_CACHE_TTL,
     OUTBOUND_MAX_REQUESTS,
     OUTBOUND_WINDOW,
+    SBIRKA_LISTIN_CACHE_TTL,
 )
 from .models import Address, DatasetSync, Entity, EntityFact, Person
 from .parser import (
     parse_address,
     parse_dataset_info,
+    parse_document_list,
     parse_entity_detail,
     parse_entity_summary,
     parse_history_entry,
     parse_person_with_fact,
     parse_sync_status,
 )
+from .parsers.financial_xml_parser import parse_financial_xml
 from .parsers.xml_parser import parse_xml_stream
 
 logger = logging.getLogger(__name__)
@@ -165,6 +168,67 @@ class JusticeService:
 
         addresses = Address.objects.filter(fact__entity=entity).select_related("fact")
         return [parse_address(a) for a in addresses]
+
+    def get_entity_documents(self, ico: str) -> dict:
+        """
+        Get sbírka listin documents for an entity.
+
+        Scrapes or.justice.cz HTML pages, parses document lists,
+        and extracts financial XML data when available.
+        """
+        normalized = ico.zfill(8)
+
+        cached = self.cache.get("documents", normalized)
+        if cached is not None:
+            return cached
+
+        client = justice_sbirka_client
+
+        # Step 1: ICO → subjektId
+        subjekt_id = client.get_subjekt_id(normalized)
+        if not subjekt_id:
+            raise ExternalAPIError(
+                "Entity not found on or.justice.cz",
+                status_code=404,
+                service_name="justice",
+            )
+
+        # Step 2: subjektId → document list
+        documents = client.get_document_list(subjekt_id)
+
+        # Step 3: For each document, get file details and parse XML if present
+        for doc in documents:
+            files = client.get_document_files(
+                doc["documentId"], doc["subjektId"], doc["spisId"]
+            )
+            doc["files"] = files
+
+            # Try to find and parse XML financial data
+            xml_file = next((f for f in files if f["isXml"]), None)
+            if xml_file:
+                try:
+                    content, content_type, filename = client.download_file(
+                        xml_file["downloadId"]
+                    )
+                    if content and b"<UcetniZaverka" in content:
+                        doc["financialData"] = parse_financial_xml(content)
+                    else:
+                        doc["financialData"] = None
+                except Exception:
+                    doc["financialData"] = None
+            else:
+                doc["financialData"] = None
+
+        result = {
+            "subjektId": subjekt_id,
+            "documents": parse_document_list(documents),
+        }
+
+        self.cache.set(
+            result, "documents", normalized,
+            ttl=SBIRKA_LISTIN_CACHE_TTL,
+        )
+        return result
 
     def list_datasets(self) -> list[dict]:
         """Return dataset catalog from DatasetSync table."""

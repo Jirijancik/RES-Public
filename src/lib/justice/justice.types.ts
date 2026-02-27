@@ -95,6 +95,59 @@ export interface JusticeSearchParams {
   limit?: number;
 }
 
+// --- Sbírka listin (document collection) ---
+
+export interface JusticeDocumentFile {
+  downloadId: string;
+  filename: string;
+  sizeKb: number | null;
+  pageCount: number | null;
+  isXml: boolean;
+  isPdf: boolean;
+}
+
+export interface JusticeFinancialRow {
+  row: number;
+  label: string;
+  brutto?: number | null;
+  korekce?: number | null;
+  netto?: number | null;
+  nettoMin?: number | null;
+  current?: number | null;
+  previous?: number | null;
+}
+
+export interface JusticeFinancialMetadata {
+  periodFrom: string;
+  periodTo: string;
+  currency: string;
+  unit: string;
+  rozsahRozvaha: string;
+  rozsahVzz: string;
+}
+
+export interface JusticeFinancialData {
+  metadata: JusticeFinancialMetadata;
+  aktiva: JusticeFinancialRow[];
+  pasiva: JusticeFinancialRow[];
+  vzz: JusticeFinancialRow[];
+}
+
+export interface JusticeDocument {
+  documentId: string;
+  subjektId: string;
+  spisId: string;
+  documentNumber: string;
+  documentType: string;
+  files: JusticeDocumentFile[];
+  financialData: JusticeFinancialData | null;
+}
+
+export interface JusticeDocumentList {
+  subjektId: string;
+  documents: JusticeDocument[];
+}
+
 // --- History ---
 
 export interface JusticeHistoryEntry {
