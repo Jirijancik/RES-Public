@@ -684,14 +684,56 @@ server {
   <!-- ====== SECTION: BACKEND ====== -->
   <div class="section-label t-backend">Backend &mdash; Django REST Framework</div>
 
-  <!-- Step 7: View -->
+  <!-- Step 7: URL Routing -->
   <div class="card border-backend" onclick="this.classList.toggle('open')">
     <div class="card-header">
       <div class="card-indicator bg-backend" style="opacity:.3"></div>
       <div class="card-step bg-backend">7</div>
       <div class="card-body">
+        <div class="card-file t-backend">config/urls.py &rarr; ares/urls.py</div>
+        <div class="card-desc">Django's URL router matches the request path in two stages &mdash; first the root config strips the <code>/api/v1/ares/</code> prefix, then the app router matches <code>search/</code> to the view class.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">config/urls.py</span>
+<pre>
+<span class="code-comment"># Root URL config &mdash; like Express app.use('/prefix', router)</span>
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/health/", include("core.urls")),
+    <span class="code-highlight">path("api/v1/ares/", include("ares.urls"))</span>,  <span class="code-comment"># &larr; matches!</span>
+    path("api/v1/justice/", include("justice.urls")),
+    path("api/v1/contacts/", include("contacts.urls")),
+]
+<span class="code-comment"># "api/v1/ares/" is stripped, "search/" is passed to ares.urls</span>
+</pre>
+      <span class="code-path">ares/urls.py</span>
+<pre>
+<span class="code-comment"># App-level router &mdash; like Express router.post('/path', handler)</span>
+urlpatterns = [
+    <span class="code-highlight">path("search/", views.AresSearchView.as_view())</span>,       <span class="code-comment"># &larr; matches!</span>
+    path("subjects/&lt;str:ico&gt;/", views.AresSubjectDetailView.as_view()),
+]
+<span class="code-comment"># "search/" matches &rarr; call AresSearchView</span>
+<span class="code-comment"># .as_view() sees HTTP method is POST &rarr; call .post()</span>
+</pre>
+      <div class="card-note">
+        <strong>Two-stage routing:</strong> The full URL <code>/api/v1/ares/search/</code> is matched in two steps. First <code>config/urls.py</code> matches and strips <code>api/v1/ares/</code>, then <code>ares/urls.py</code> matches <code>search/</code> to the right view class. This is like Express's <code>app.use('/api/v1/ares', aresRouter)</code> + <code>router.post('/search', handler)</code>.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step 8: View -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">8</div>
+      <div class="card-body">
         <div class="card-file t-backend">backend/ares/views.py</div>
-        <div class="card-desc">Django view receives the request. Validates the data with a serializer, then delegates to <code>AresService</code>.</div>
+        <div class="card-desc">The view is the glue layer &mdash; it validates input, delegates to the service, and formats the output. Only 4 lines of actual code.</div>
       </div>
       <div class="card-toggle">&#9660;</div>
     </div>
@@ -700,30 +742,70 @@ server {
 <pre>
 class AresSearchView(APIView):
     def post(self, request):
-        <span class="code-comment"># 1. Validate incoming JSON with DRF serializer</span>
+        <span class="code-comment"># 1. Validate incoming JSON (step 9)</span>
         serializer = <span class="code-highlight">SearchRequestSerializer(data=request.data)</span>
         serializer.is_valid(raise_exception=True)
 
-        <span class="code-comment"># 2. Call the service layer (business logic)</span>
+        <span class="code-comment"># 2. Call the service layer (step 10)</span>
         service = AresService()
         result = <span class="code-highlight">service.search(serializer.validated_data)</span>
 
-        <span class="code-comment"># 3. Serialize the result back to JSON</span>
-        return Response(SearchResultSerializer(result).data)
+        <span class="code-comment"># 3. Format the result back to JSON for the frontend</span>
+        return Response(<span class="code-highlight">SearchResultSerializer(result).data</span>)
 </pre>
       <div class="card-note">
-        <strong>Pattern:</strong> View &rarr; Serializer (validate) &rarr; Service (logic) &rarr; Serializer (format response). The view itself is thin &mdash; all business logic lives in <code>services.py</code>.
+        <strong>Thin controller pattern:</strong> The view doesn't contain any business logic. It follows a strict 3-step pattern: validate input &rarr; delegate to service &rarr; format output. This means the same <code>AresService.search()</code> can be called from a CLI command, a background job, or a test &mdash; without needing HTTP.
       </div>
     </div>
   </div>
 
   <div class="arrow"></div>
 
-  <!-- Step 8: Service -->
+  <!-- Step 9: Serializer Validation -->
   <div class="card border-backend" onclick="this.classList.toggle('open')">
     <div class="card-header">
       <div class="card-indicator bg-backend" style="opacity:.3"></div>
-      <div class="card-step bg-backend">8</div>
+      <div class="card-step bg-backend">9</div>
+      <div class="card-body">
+        <div class="card-file t-backend">backend/ares/serializers.py</div>
+        <div class="card-desc">Validates and cleans the incoming JSON body. Rejects invalid data with a <code>400 Bad Request</code> before it reaches the service layer.</div>
+      </div>
+      <div class="card-toggle">&#9660;</div>
+    </div>
+    <div class="card-code">
+      <span class="code-path">backend/ares/serializers.py</span>
+<pre>
+<span class="code-comment"># Input validation &mdash; like Zod schemas in TypeScript</span>
+class SearchRequestSerializer(serializers.Serializer):
+    start        = serializers.IntegerField(required=False, <span class="code-highlight">min_value=0</span>)
+    count        = serializers.IntegerField(required=False, <span class="code-highlight">min_value=1, max_value=100</span>)
+    ico          = serializers.ListField(child=serializers.CharField(), required=False)
+    businessName = serializers.CharField(required=False, allow_blank=True)
+    legalForm    = serializers.ListField(child=serializers.CharField(), required=False)
+    location     = SearchLocationSerializer(required=False)
+
+<span class="code-comment"># What happens:</span>
+<span class="code-comment"># { "ico": ["12345678"], "count": 10 }     &rarr; valid &check;</span>
+<span class="code-comment"># { "count": -5 }                           &rarr; 400 Bad Request &cross;</span>
+<span class="code-comment"># { "count": 999 }                          &rarr; 400 Bad Request &cross;</span>
+<span class="code-comment"># { "start": "abc" }                        &rarr; 400 Bad Request &cross;</span>
+
+<span class="code-comment"># After validation, serializer.validated_data contains</span>
+<span class="code-comment"># only the clean, typed values &mdash; this is what the service receives.</span>
+</pre>
+      <div class="card-note">
+        <strong>Why this matters:</strong> Serializers act as a security boundary. Even if someone sends garbage JSON to your API, the service layer never sees it &mdash; invalid requests are rejected here with a clear error message. Field names are <code>camelCase</code> to match the frontend TypeScript types exactly, so no translation is needed between frontend and backend.
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow"></div>
+
+  <!-- Step 10: Service -->
+  <div class="card border-backend" onclick="this.classList.toggle('open')">
+    <div class="card-header">
+      <div class="card-indicator bg-backend" style="opacity:.3"></div>
+      <div class="card-step bg-backend">10</div>
       <div class="card-body">
         <div class="card-file t-backend">backend/ares/services.py</div>
         <div class="card-desc">The brain of the operation. Translates params to Czech, checks cache, checks rate limit, calls ARES API, parses response, caches result.</div>
@@ -751,7 +833,7 @@ class AresService:
         cache_hash = self.cache.hash_params(request_body)
         cached = <span class="code-highlight">self.cache.get("search", cache_hash)</span>
         if cached is not None:
-            <span class="code-highlight">return cached</span>  <span class="code-comment"># &larr; CACHE HIT! Skip steps 9-11</span>
+            <span class="code-highlight">return cached</span>  <span class="code-comment"># &larr; CACHE HIT! Skip steps 11-13</span>
 
         <span class="code-comment"># 3. Rate limiting: max 12 outbound requests per minute</span>
         if not self.outbound_throttle.allow():
@@ -784,12 +866,12 @@ class AresService:
   <div class="branch">
     <div class="branch-path hit">
       <strong>Cache HIT</strong>
-      Result found in Redis.<br>Skip steps 9&ndash;11, return immediately.<br>
+      Result found in Redis.<br>Skip steps 11&ndash;13, return immediately.<br>
       <span style="font-size:.75rem">TTL: 15 min (search), 1 hr (detail)</span>
     </div>
     <div class="branch-path miss">
       <strong>Cache MISS</strong>
-      Not cached yet. Continue to step 9 &mdash; call the external Czech government ARES API.
+      Not cached yet. Continue to step 11 &mdash; call the external Czech government ARES API.
     </div>
   </div>
 
@@ -798,11 +880,11 @@ class AresService:
   <!-- ====== SECTION: CACHE ====== -->
   <div class="section-label t-cache">Cache &mdash; Redis</div>
 
-  <!-- Step 9: Cache Service -->
+  <!-- Step 11: Cache Service -->
   <div class="card border-cache" onclick="this.classList.toggle('open')">
     <div class="card-header">
       <div class="card-indicator bg-cache" style="opacity:.3"></div>
-      <div class="card-step bg-cache">9</div>
+      <div class="card-step bg-cache">11</div>
       <div class="card-body">
         <div class="card-file t-cache">backend/core/services/cache.py</div>
         <div class="card-desc">Redis cache wrapper. Builds namespaced keys like <code>ares:search:a1b2c3d4</code> and stores JSON data with TTL.</div>
@@ -845,11 +927,11 @@ class CacheService:
   <!-- ====== SECTION: EXTERNAL ====== -->
   <div class="section-label t-external">External &mdash; Czech Government ARES API</div>
 
-  <!-- Step 10: ARES Client -->
+  <!-- Step 12: ARES Client -->
   <div class="card border-external" onclick="this.classList.toggle('open')">
     <div class="card-header">
       <div class="card-indicator bg-external" style="opacity:.3"></div>
-      <div class="card-step bg-external">10</div>
+      <div class="card-step bg-external">12</div>
       <div class="card-body">
         <div class="card-file t-external">backend/ares/client.py</div>
         <div class="card-desc">HTTP client that calls the real Czech government ARES API. Uses connection pooling for efficiency.</div>
@@ -887,11 +969,11 @@ class AresClient:
 
   <div class="arrow"></div>
 
-  <!-- Step 11: Parser -->
+  <!-- Step 13: Parser -->
   <div class="card border-backend" onclick="this.classList.toggle('open')">
     <div class="card-header">
       <div class="card-indicator bg-backend" style="opacity:.3"></div>
-      <div class="card-step bg-backend">11</div>
+      <div class="card-step bg-backend">13</div>
       <div class="card-body">
         <div class="card-file t-backend">backend/ares/parser.py</div>
         <div class="card-desc">Translates the Czech government API response into English field names that the frontend understands.</div>
@@ -940,11 +1022,11 @@ def parse_economic_subject(subject: dict) -&gt; dict:
   <!-- ====== SECTION: RESPONSE ====== -->
   <div class="section-label t-response">Response Path &mdash; Back to the Browser</div>
 
-  <!-- Step 12: Response -->
+  <!-- Step 14: Response -->
   <div class="card border-response" onclick="this.classList.toggle('open')">
     <div class="card-header">
       <div class="card-indicator bg-response" style="opacity:.3"></div>
-      <div class="card-step bg-response">12</div>
+      <div class="card-step bg-response">14</div>
       <div class="card-body">
         <div class="card-file t-response">The response flows back through every layer</div>
         <div class="card-desc">Django serializes &rarr; Nginx forwards &rarr; Axios receives &rarr; TanStack Query caches &rarr; React re-renders the results.</div>
@@ -959,7 +1041,9 @@ def parse_economic_subject(subject: dict) -&gt; dict:
    &darr;
 <span class="code-highlight">services.py</span>         &rarr; Caches result in Redis, returns dict
    &darr;
-<span class="code-highlight">views.py</span>            &rarr; SearchResultSerializer wraps it in proper format
+<span class="code-highlight">views.py</span>            &rarr; SearchResultSerializer formats output JSON
+   &darr;
+<span class="code-highlight">urls.py</span>             &rarr; (routing layer, pass-through on the way back)
    &darr;
 <span class="code-highlight">Django/Gunicorn</span>     &rarr; HTTP 200 JSON response
    &darr;
