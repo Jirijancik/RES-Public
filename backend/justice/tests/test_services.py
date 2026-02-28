@@ -8,6 +8,7 @@ import pytest
 from datetime import date
 from unittest.mock import patch, MagicMock
 
+from company.models import Company
 from justice.services import JusticeService, JusticeSyncService
 from justice.models import Address, DatasetSync, Entity, EntityFact, Person
 from core.exceptions import ExternalAPIError
@@ -491,3 +492,80 @@ def test_sync_dataset_skipped():
     assert result["durationSeconds"] == 0
     # Verify no download occurred.
     mock_client.download_file_stream.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestJusticeSyncCreatesCompany:
+    def test_upsert_entity_creates_company(self):
+        """_upsert_entity creates a Company hub record and links the Entity."""
+        sync_service = JusticeSyncService(client=MagicMock())
+
+        subjekt = {
+            "ico": "12345678",
+            "name": "Test s.r.o.",
+            "registration_date": "2020-01-15",
+            "deletion_date": None,
+            "facts": [],
+        }
+        entity = sync_service._upsert_entity(subjekt, "sro-actual-praha-2024")
+
+        assert entity is not None
+        assert entity.company is not None
+        assert entity.company.ico == "12345678"
+        assert entity.company.name == "Test s.r.o."
+        assert Company.objects.count() == 1
+
+    def test_upsert_entity_reuses_existing_company(self):
+        """If Company already exists for this ICO, it's reused (not duplicated)."""
+        company = Company.objects.create(ico="12345678", name="Old Name")
+        sync_service = JusticeSyncService(client=MagicMock())
+
+        subjekt = {
+            "ico": "12345678",
+            "name": "New Name",
+            "facts": [],
+        }
+        entity = sync_service._upsert_entity(subjekt, "sro-actual-praha-2024")
+
+        assert entity.company_id == company.id
+        assert Company.objects.count() == 1
+
+
+@pytest.mark.django_db
+class TestJusticeSyncPopulatesSearchFields:
+    def test_upsert_entity_sets_legal_form_on_company(self):
+        """Justice sync writes legal_form to Company if not already set."""
+        sync_service = JusticeSyncService(client=MagicMock())
+
+        subjekt = {
+            "ico": "12345678",
+            "name": "Test s.r.o.",
+            "facts": [
+                {
+                    "header": "Právní forma",
+                    "fact_type": {"code": "PRAVNI_FORMA", "name": "Právní forma"},
+                    "value_text": "Společnost s ručením omezeným",
+                    "legal_form": {"code": "112", "name": "Společnost s ručením omezeným"},
+                    "sub_facts": [],
+                }
+            ],
+        }
+        sync_service._upsert_entity(subjekt, "sro-actual-praha-2024")
+
+        company = Company.objects.get(ico="12345678")
+        assert company.legal_form == "112"
+
+    def test_upsert_entity_does_not_overwrite_ares_legal_form(self):
+        """If Company already has legal_form from ARES, Justice doesn't overwrite."""
+        Company.objects.create(ico="12345678", name="Test", legal_form="112")
+
+        sync_service = JusticeSyncService(client=MagicMock())
+        subjekt = {
+            "ico": "12345678",
+            "name": "Test s.r.o.",
+            "facts": [],
+        }
+        sync_service._upsert_entity(subjekt, "sro-actual-praha-2024")
+
+        company = Company.objects.get(ico="12345678")
+        assert company.legal_form == "112"  # Unchanged

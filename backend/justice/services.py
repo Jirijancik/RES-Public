@@ -27,6 +27,7 @@ from .constants import (
     OUTBOUND_WINDOW,
     SBIRKA_LISTIN_CACHE_TTL,
 )
+from company.models import Company
 from .models import Address, DatasetSync, Entity, EntityFact, Person
 from .parser import (
     parse_address,
@@ -408,7 +409,25 @@ class JusticeSyncService:
         file_ref = self._extract_file_reference(subjekt.get("facts", []))
         legal_form = self._extract_legal_form(subjekt.get("facts", []))
 
+        # Create or get Company hub record.
+        company, _ = Company.objects.get_or_create(
+            ico=ico,
+            defaults={
+                "name": subjekt.get("name", ""),
+                "is_active": not bool(subjekt.get("deletion_date")),
+            },
+        )
+
+        # Phase 2: Populate search fields from Justice if not already set by ARES.
+        update_fields = {}
+        legal_form_code = legal_form.get("code", "") if legal_form else ""
+        if legal_form_code and not company.legal_form:
+            update_fields["legal_form"] = legal_form_code
+        if update_fields:
+            Company.objects.filter(pk=company.pk).update(**update_fields)
+
         entity = Entity.objects.create(
+            company=company,
             ico=ico,
             name=subjekt.get("name", ""),
             registration_date=_parse_date(subjekt.get("registration_date")),

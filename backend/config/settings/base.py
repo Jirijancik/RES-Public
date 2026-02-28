@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "corsheaders",
     # Your apps (like your src/lib/ domains)
     "core",
+    "company",
     "ares",
     "justice",
     "contacts",

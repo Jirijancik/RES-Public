@@ -111,7 +111,7 @@ function FactCard({ fact, depth = 0, hideHeader }: { fact: JusticeFact; depth?: 
     && fact.valueText !== fact.header
     && !["AngazmaFyzicke", "Spolecnik", "INDIVIDUALNI_SRO"].includes(fact.valueText);
 
-  const formattedValueData = formatValueData(fact.valueData);
+  const formattedValueData = formatValueData(fact.valueData as Record<string, unknown> | null);
 
   return (
     <div className={depth > 0 ? "border-muted border-l-2 pl-3 mt-1" : ""}>

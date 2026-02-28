@@ -1,6 +1,7 @@
 """
 ARES API constants. Ported from src/lib/ares/ares.constants.ts.
 """
+from datetime import timedelta
 
 ARES_BASE_URL = (
     "https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty"
@@ -14,6 +15,9 @@ ARES_MAX_PAGE_SIZE = 100
 # Cache TTLs
 ARES_SEARCH_CACHE_TTL = 900   # 15 minutes
 ARES_DETAIL_CACHE_TTL = 3600  # 1 hour
+
+# DB freshness: records older than this trigger background refresh
+ARES_DB_FRESHNESS_TTL = timedelta(hours=24)
 
 # Czech Regions (Kraje) — 14 regions
 REGION_CODES = [

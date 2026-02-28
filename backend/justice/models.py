@@ -24,6 +24,13 @@ class Entity(models.Model):
     """A legal entity (Subjekt) from the Czech commercial registry."""
 
     ico = models.CharField(max_length=20, db_index=True)
+    company = models.ForeignKey(
+        "company.Company",
+        on_delete=models.CASCADE,
+        related_name="justice_entities",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=1000)
     registration_date = models.DateField(null=True, blank=True)
     deletion_date = models.DateField(null=True, blank=True)
