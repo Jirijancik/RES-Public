@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CompanyDetail } from "@/components/company";
+import { CompanyDetailPage } from "@/components/company";
 import { site } from "@/config/site";
 
 type PageProps = {
@@ -8,16 +8,16 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { ico } = await params;
-  const title = `Company ${ico}`;
+  const title = `Firma ${ico}`;
 
   return {
     title,
     alternates: {
-      canonical: `/companies/${ico}`,
+      canonical: `/company/${ico}`,
     },
     openGraph: {
       title: `${title} | ${site.name}`,
-      url: `${site.url}/companies/${ico}`,
+      url: `${site.url}/company/${ico}`,
     },
   };
 }
@@ -25,5 +25,5 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function Page({ params }: PageProps) {
   const { ico } = await params;
 
-  return <CompanyDetail ico={ico} />;
+  return <CompanyDetailPage ico={ico} />;
 }

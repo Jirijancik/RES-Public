@@ -18,6 +18,7 @@ class CompanyDetailSerializer(serializers.Serializer):
 
 class CompanySearchRequestSerializer(serializers.Serializer):
     name = serializers.CharField(required=False, allow_blank=True)
+    ico = serializers.CharField(required=False, allow_blank=True)
     legalForm = serializers.CharField(required=False)
     regionCode = serializers.IntegerField(required=False)
     employeeCategory = serializers.CharField(required=False)

@@ -153,6 +153,96 @@
       }
     }
   },
+  "company": {
+    "search": {
+      "title": "Vyhledavani firem",
+      "description": "Prohledejte databazi ceskych firem z verejnych rejstriku",
+      "placeholder": "Nazev firmy nebo ICO",
+      "filters": {
+        "status": "Stav",
+        "statusActive": "Aktivni",
+        "statusInactive": "Zaniklá",
+        "statusAll": "Vse",
+        "region": "Kraj",
+        "legalForm": "Pravni forma",
+        "employeeCategory": "Kategorie zamestnancu",
+        "nace": "NACE kod",
+        "advanced": "Podrobne filtry"
+      },
+      "buttons": {
+        "search": "Vyhledat",
+        "searching": "Vyhledavam...",
+        "clear": "Vymazat"
+      },
+      "results": {
+        "found": "Nalezeno {{count}} firem",
+        "noResults": "Zadne firmy nenalezeny",
+        "error": "Chyba pri vyhledavani",
+        "prevPage": "Predchozi stranka",
+        "nextPage": "Dalsi stranka"
+      }
+    },
+    "detail": {
+      "loading": "Nacitam udaje o firme...",
+      "error": "Nepodarilo se nacist udaje o firme",
+      "notFound": "Firma nebyla nalezena",
+      "backToSearch": "Zpet na vyhledavani",
+      "noData": "Data nejsou k dispozici"
+    },
+    "cards": {
+      "address": {
+        "title": "Adresa a sidlo",
+        "source": "ARES"
+      },
+      "details": {
+        "title": "Podrobne udaje",
+        "source": "ARES"
+      },
+      "activity": {
+        "title": "Ekonomicka cinnost",
+        "source": "ARES"
+      },
+      "management": {
+        "title": "Vedeni spolecnosti",
+        "source": "Verejny rejstrik"
+      },
+      "registry": {
+        "title": "Zapisy v rejstriku",
+        "source": "Verejny rejstrik"
+      },
+      "documents": {
+        "title": "Sbirka listin",
+        "source": "Sbirka listin, or.justice.cz",
+        "loadButton": "Nacist dokumenty",
+        "loading": "Nacitam dokumenty z or.justice.cz...",
+        "note": "Data se nacitaji v realnem case a nejsou ukladana"
+      },
+      "financials": {
+        "title": "Ucetni zaverky",
+        "source": "Sbirka listin"
+      }
+    },
+    "header": {
+      "ico": "ICO",
+      "legalForm": "Pravni forma",
+      "region": "Kraj",
+      "court": "Soud",
+      "fileReference": "Spisova znacka",
+      "employees": "Zamestnanci",
+      "active": "Aktivni",
+      "inactive": "Zaniklá"
+    },
+    "common": {
+      "source": "Zdroj",
+      "updatedAt": "Aktualizováno",
+      "from": "Od",
+      "to": "Do",
+      "deleted": "vymazáno",
+      "other": "Ostatní",
+      "registered": "Zapsáno",
+      "nace": "NACE"
+    }
+  },
   "labels": {
     "email": "E-mail",
     "name": "Jmeno",

@@ -1,2 +1,2 @@
-export { CompanyDetail } from "./company-detail";
-export { CompanySearch } from "./company-search";
+export { CompanySearchPage } from "./company-search-page";
+export { CompanyDetailPage } from "./detail/company-detail-page";

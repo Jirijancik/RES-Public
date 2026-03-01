@@ -3,6 +3,9 @@
 import { Link, type LinkProps } from "@/components/ui/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "../ui/button";
+import { Header } from "./header";
+import { Footer } from "./footer";
+import { navLinksArray } from "@/config/nav-links";
 
 // Main Layout Component
 export function LayoutCentered({ children }: { children: React.ReactNode }) {
@@ -12,22 +15,14 @@ export function LayoutCentered({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         "[--navbar-height:--spacing(16)]",
-        "relative isolate flex min-h-dvh w-full pt-12 flex-col justify-between *:shrink-0 *:grow-0 *:data-[slot=main]:shrink *:data-[slot=main]:grow"
+        "relative isolate flex min-h-dvh w-full pt-0 flex-col justify-between *:shrink-0 *:grow-0 *:data-[slot=main]:shrink *:data-[slot=main]:grow"
       )}
     >
       {/* Skip to content - A11y */}
       <SkipToContent href={`#${contentId}`}>Skip to content</SkipToContent>
 
-      {/* Banner */}
-      {/* <Banner isDismissable={true}>
-        <BannerTitle>Lorem ipsum dolor sit amet</BannerTitle>
-        <BannerDivider />
-        <BannerDescription>consectetur adipisicing elit ipsa laudantium</BannerDescription>
-        <BannerLink href="/">Call to action</BannerLink>
-      </Banner> */}
-
       {/* Header */}
-      {/* <Header navigation={navLinksArray} /> */}
+      <Header navigation={navLinksArray} />
 
       {/* Main content */}
       <main id={contentId} data-slot="main" className="min-w-0">
@@ -35,7 +30,7 @@ export function LayoutCentered({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Footer */}
-      {/* <Footer /> */}
+      <Footer />
     </div>
   );
 }

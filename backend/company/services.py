@@ -78,6 +78,8 @@ class CompanyService:
         """Multi-parameter search across denormalized Company fields."""
         qs = Company.objects.all()
 
+        if ico := params.get("ico"):
+            qs = qs.filter(ico=ico.zfill(8))
         if name := params.get("name"):
             qs = qs.filter(name__icontains=name)
         if legal_form := params.get("legalForm"):

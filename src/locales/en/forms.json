@@ -153,6 +153,96 @@
       }
     }
   },
+  "company": {
+    "search": {
+      "title": "Company Search",
+      "description": "Search the database of Czech companies from public registries",
+      "placeholder": "Company name or ICO",
+      "filters": {
+        "status": "Status",
+        "statusActive": "Active",
+        "statusInactive": "Inactive",
+        "statusAll": "All",
+        "region": "Region",
+        "legalForm": "Legal Form",
+        "employeeCategory": "Employee Category",
+        "nace": "NACE Code",
+        "advanced": "Advanced Filters"
+      },
+      "buttons": {
+        "search": "Search",
+        "searching": "Searching...",
+        "clear": "Clear"
+      },
+      "results": {
+        "found": "Found {{count}} companies",
+        "noResults": "No companies found",
+        "error": "Search error",
+        "prevPage": "Previous page",
+        "nextPage": "Next page"
+      }
+    },
+    "detail": {
+      "loading": "Loading company details...",
+      "error": "Failed to load company details",
+      "notFound": "Company not found",
+      "backToSearch": "Back to search",
+      "noData": "Data not available"
+    },
+    "cards": {
+      "address": {
+        "title": "Address & Headquarters",
+        "source": "ARES"
+      },
+      "details": {
+        "title": "Detailed Information",
+        "source": "ARES"
+      },
+      "activity": {
+        "title": "Economic Activity",
+        "source": "ARES"
+      },
+      "management": {
+        "title": "Company Management",
+        "source": "Public Registry"
+      },
+      "registry": {
+        "title": "Registry Entries",
+        "source": "Public Registry"
+      },
+      "documents": {
+        "title": "Document Collection",
+        "source": "Document Collection, or.justice.cz",
+        "loadButton": "Load Documents",
+        "loading": "Loading documents from or.justice.cz...",
+        "note": "Data is fetched in real time and is not stored"
+      },
+      "financials": {
+        "title": "Financial Statements",
+        "source": "Document Collection"
+      }
+    },
+    "header": {
+      "ico": "Company ID",
+      "legalForm": "Legal Form",
+      "region": "Region",
+      "court": "Court",
+      "fileReference": "File Reference",
+      "employees": "Employees",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "common": {
+      "source": "Source",
+      "updatedAt": "Updated",
+      "from": "From",
+      "to": "To",
+      "deleted": "deleted",
+      "other": "Other",
+      "registered": "Registered",
+      "nace": "NACE"
+    }
+  },
   "labels": {
     "email": "Email",
     "name": "Name",

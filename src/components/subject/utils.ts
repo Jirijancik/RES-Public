@@ -37,13 +37,6 @@ export function formatAddress(headquarters?: {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-export function formatDate(date?: Date): string | null {
-  if (!date) return null;
-  const parsed = date instanceof Date ? date : new Date(date);
-  if (isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat("cs-CZ").format(parsed);
-}
-
 export const REGISTRATION_LABELS: Record<keyof AresRegistrationStatuses, string> = {
   rosStatus: "ROS",
   businessRegisterStatus: "VR",

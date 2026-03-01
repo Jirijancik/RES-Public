@@ -35,6 +35,7 @@ export interface CompanySearchResult {
 
 export interface CompanySearchParams {
   name?: string;
+  ico?: string;
   legalForm?: string;
   regionCode?: number;
   employeeCategory?: string;

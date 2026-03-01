@@ -90,6 +90,7 @@ export interface AresBusinessRecord {
   naceActivities?: string[];
   naceActivities2008?: string[];
   deliveryAddress?: AresDeliveryAddress;
+  statisticalData?: AresStatisticalData;
   registrationStatuses?: AresRegistrationStatuses;
   primarySource?: string;
   subRegisterSzr?: string;

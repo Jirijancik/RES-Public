@@ -15,12 +15,8 @@ export type NavigationItem = NavigationLink | NavigationDropdown;
 
 export const navLinks = {
   home: {
-    name: "Home",
+    name: "Firmy",
     href: "/",
-  },
-  justice: {
-    name: "Justice",
-    href: "/justice",
   },
   legalLinks: {
     name: "Legal links",

@@ -18,7 +18,8 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Link } from "@/components/ui/link";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
-import { formatAddress, formatDate, REGISTRATION_LABELS } from "./utils";
+import { formatAddress, REGISTRATION_LABELS } from "./utils";
+import { formatDate } from "@/components/company/shared";
 
 const SubjectMap = dynamic(() => import("./subject-map").then((mod) => mod.SubjectMap), {
   ssr: false,

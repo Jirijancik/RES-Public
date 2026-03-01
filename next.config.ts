@@ -13,6 +13,35 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [
+      {
+        source: "/subject/:ico",
+        destination: "/company/:ico",
+        permanent: true,
+      },
+      {
+        source: "/justice/:ico",
+        destination: "/company/:ico",
+        permanent: true,
+      },
+      {
+        source: "/justice",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/companies/search",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/companies/:ico",
+        destination: "/company/:ico",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

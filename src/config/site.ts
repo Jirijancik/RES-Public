@@ -1,8 +1,8 @@
 export const site = {
   name: "GTDN",
-  defaultTitle: "Next.js Starter Template",
+  defaultTitle: "Registr firem | GTDN",
   defaultDescription:
-    "Modern web application starter template built with Next.js 16, TypeScript, shadcn/ui and with a lot of built-in features.",
+    "Vyhledávání a přehled českých firem z veřejných rejstříků",
   domain: "gtdn.online",
   url: "https://www.gtdn.online",
   locale: "cs",

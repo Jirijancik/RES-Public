@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { HomePage } from "@/components/home";
+import { CompanySearchPage } from "@/components/company";
 
 export const metadata: Metadata = {
   alternates: {
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <HomePage />;
+  return <CompanySearchPage />;
 }
