@@ -8,6 +8,7 @@ import { SearchIcon, SlidersHorizontalIcon, ChevronDownIcon } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldError, FieldGroup } from "@/components/ui/field";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { RegionSelect } from "@/components/home/region-select";
@@ -156,16 +157,19 @@ export function CompanySearchForm({ onSearch, isPending }: CompanySearchFormProp
                     <FieldLabel htmlFor={`company-${field.name}`}>
                       {t("company.search.filters.status")}
                     </FieldLabel>
-                    <select
-                      id={`company-${field.name}`}
+                    <Select
                       value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                      onValueChange={field.handleChange}
                     >
-                      <option value="active">{t("company.search.filters.statusActive")}</option>
-                      <option value="inactive">{t("company.search.filters.statusInactive")}</option>
-                      <option value="all">{t("company.search.filters.statusAll")}</option>
-                    </select>
+                      <SelectTrigger id={`company-${field.name}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">{t("company.search.filters.statusActive")}</SelectItem>
+                        <SelectItem value="inactive">{t("company.search.filters.statusInactive")}</SelectItem>
+                        <SelectItem value="all">{t("company.search.filters.statusAll")}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </Field>
                 )}
               </form.Field>
@@ -173,15 +177,23 @@ export function CompanySearchForm({ onSearch, isPending }: CompanySearchFormProp
           </CollapsibleContent>
         </Collapsible>
 
-        <div className="flex gap-3">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? <Spinner /> : <SearchIcon aria-hidden="true" className="size-4" />}
-            {isPending ? t("company.search.buttons.searching") : t("company.search.buttons.search")}
-          </Button>
-          <Button type="button" variant="outline" onClick={handleClear} disabled={isPending}>
-            {t("company.search.buttons.clear")}
-          </Button>
-        </div>
+        <form.Subscribe
+          selector={(state) =>
+            state.values.name.trim().length > 0 || state.values.ico.trim().length > 0
+          }
+        >
+          {(hasInput) => (
+            <div className="flex gap-3">
+              <Button type="submit" disabled={isPending || !hasInput}>
+                {isPending ? <Spinner /> : <SearchIcon aria-hidden="true" className="size-4" />}
+                {isPending ? t("company.search.buttons.searching") : t("company.search.buttons.search")}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleClear} disabled={isPending || !hasInput}>
+                {t("company.search.buttons.clear")}
+              </Button>
+            </div>
+          )}
+        </form.Subscribe>
       </FieldGroup>
     </form>
   );

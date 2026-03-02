@@ -177,6 +177,7 @@
       "results": {
         "found": "Found {{count}} companies",
         "noResults": "No companies found",
+        "noResultsHint": "Try a different name or ICO, or adjust your filters.",
         "error": "Search error",
         "prevPage": "Previous page",
         "nextPage": "Next page"

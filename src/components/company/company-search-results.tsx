@@ -2,7 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircleIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { AlertCircleIcon, ChevronLeftIcon, ChevronRightIcon, SearchXIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyResultCard } from "./company-result-card";
@@ -72,8 +72,12 @@ export function CompanySearchResults({
 
   if (results.totalCount === 0) {
     return (
-      <div className="text-muted-foreground py-8 text-center">
-        {t("company.search.results.noResults")}
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <SearchXIcon aria-hidden="true" className="text-muted-foreground/40 size-12" />
+        <div className="space-y-1">
+          <p className="font-medium">{t("company.search.results.noResults")}</p>
+          <p className="text-muted-foreground text-sm">{t("company.search.results.noResultsHint")}</p>
+        </div>
       </div>
     );
   }

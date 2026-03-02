@@ -177,6 +177,7 @@
       "results": {
         "found": "Nalezeno {{count}} firem",
         "noResults": "Zadne firmy nenalezeny",
+        "noResultsHint": "Zkuste jiny nazev nebo ICO, nebo upravte filtry.",
         "error": "Chyba pri vyhledavani",
         "prevPage": "Predchozi stranka",
         "nextPage": "Dalsi stranka"

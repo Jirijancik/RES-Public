@@ -79,36 +79,37 @@ export function CompanyDetailPage({ ico }: CompanyDetailPageProps) {
   }
 
   return (
-    <Container size="xl">
+    <Container className="3xl:[--container-max-width:var(--breakpoint-3xl)]">
       <div className="space-y-6 py-8">
-        {/* ❶ Company Header — hub data, instant */}
-        <CompanyHeader company={company} />
+        {/* Company Header — hub data, instant */}
+        <CompanyHeader
+          name={company.name}
+          ico={company.ico}
+          isActive={company.isActive}
+          justice={company.sources.justice}
+        />
 
-        {/* Card stack */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Left column */}
+        {/* Card grid — 1 col → 2 col (lg) → 3 col (3xl) */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 3xl:grid-cols-3">
+          {/* Col 1: geographic / operational */}
           <div className="space-y-6">
-            {/* ❷ Address card — ARES */}
             <AddressCard record={aresRecord} isLoading={aresLoading} />
-
-            {/* ❹ Activity card — ARES */}
             <ActivityCard record={aresRecord} isLoading={aresLoading} />
-
-            {/* ❺ Management card — Justice persons */}
-            <ManagementCard persons={justicePersons} isLoading={justicePersonsLoading} />
           </div>
 
-          {/* Right column */}
+          {/* Col 2: regulatory / details */}
           <div className="space-y-6">
-            {/* ❸ Details card — ARES */}
             <DetailsCard record={aresRecord} isLoading={aresLoading} />
-
-            {/* ❻ Registry card — Justice entity */}
             <RegistryCard entity={justiceEntity} isLoading={justiceEntityLoading} />
+          </div>
+
+          {/* Management — full-width row at lg, 3rd column at 3xl */}
+          <div className="space-y-6 lg:col-span-2 3xl:col-span-1 3xl:row-start-1">
+            <ManagementCard persons={justicePersons} isLoading={justicePersonsLoading} />
           </div>
         </div>
 
-        {/* ❼ Documents card — lazy, full width */}
+        {/* Documents card — lazy, full width */}
         <DocumentsCard ico={ico} />
       </div>
     </Container>

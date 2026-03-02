@@ -45,7 +45,7 @@ export function CompanySearchPage() {
         <section className="space-y-8">
           <CompanySearchForm
             onSearch={handleSearch}
-            isPending={isLoading && hasSearchCriteria}
+            isPending={isLoading ? hasSearchCriteria : false}
           />
 
           {hasSearchCriteria ? (
