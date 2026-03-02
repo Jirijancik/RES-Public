@@ -63,7 +63,9 @@ class AresService:
                 )
 
         # Every-touch-persists: save each search result to DB.
-        self._persist_search_results(result)
+        # Pass the raw Czech subjects so raw_data stays in Czech format.
+        raw_subjects = raw.get("ekonomickeSubjekty", [])
+        self._persist_search_results(result, raw_subjects)
 
         return result
 
@@ -181,27 +183,44 @@ class AresService:
         except Exception:
             logger.warning("Failed to persist ARES detail %s", ico, exc_info=True)
 
-    def _persist_search_results(self, result: dict) -> None:
+    def _persist_search_results(self, result: dict, raw_subjects: list) -> None:
         """Bulk-persist search results to DB (Company + EconomicSubject per entity)."""
         Company = _get_company_model()
+
+        # Index raw Czech subjects by ICO for O(1) lookup.
+        raw_by_ico = {}
+        for raw_subject in raw_subjects:
+            raw_ico = raw_subject.get("ico")
+            if raw_ico:
+                raw_by_ico[raw_ico] = raw_subject
+
         for subject in result.get("economicSubjects", []):
             ico = subject.get("icoId")
             if not ico:
                 continue
             try:
                 normalized = ico.zfill(8)
-                # get_or_create for Company — don't overwrite detail-level data
+                records = subject.get("records", [])
+                business_name = records[0].get("businessName", "") if records else ""
+
+                # Use raw Czech data for raw_data, not the parsed English output.
+                raw_data = raw_by_ico.get(normalized) or raw_by_ico.get(ico)
+
                 company, _ = Company.objects.get_or_create(
                     ico=normalized,
-                    defaults={"name": subject.get("businessName", "")},
+                    defaults={"name": business_name},
                 )
+                update_defaults = {
+                    "business_name": business_name,
+                    "company": company,
+                }
+                # Only write raw_data if we have the Czech source.
+                if raw_data:
+                    update_defaults["raw_data"] = raw_data
+
                 EconomicSubject.objects.update_or_create(
                     ico=normalized,
-                    defaults={
-                        "business_name": subject.get("businessName", ""),
-                        "raw_data": subject,
-                        "company": company,
-                    },
+                    defaults=update_defaults,
                 )
             except Exception:
                 logger.warning("Failed to persist search result %s", ico, exc_info=True)

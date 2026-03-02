@@ -78,6 +78,11 @@ def parse_registration_statuses(seznam: dict | None) -> dict | None:
 
 
 def parse_economic_subject(subject: dict) -> dict:
+    # Already-parsed data (English keys) — return as-is.
+    # This happens when raw_data was saved from search results before the fix.
+    if "icoId" in subject and "records" in subject:
+        return subject
+
     record = {
         "ico": subject["ico"],
         "businessName": subject["obchodniJmeno"],
