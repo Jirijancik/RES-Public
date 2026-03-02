@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     # Third-party (like npm packages)
     "rest_framework",
     "corsheaders",
+    "drf_spectacular",
     # Your apps (like your src/lib/ domains)
     "core",
     "company",
@@ -86,6 +87,27 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exceptions.custom_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# drf-spectacular — OpenAPI 3.0 schema generation
+SPECTACULAR_SETTINGS = {
+    "TITLE": "GTDN API",
+    "DESCRIPTION": (
+        "Czech business registry aggregation API. "
+        "Provides unified access to ARES (economic subjects), "
+        "Justice (commercial registry), and a merged Company hub."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "TAGS": [
+        {"name": "Health", "description": "System health checks"},
+        {"name": "ARES", "description": "Czech ARES business registry (ekonomické subjekty)"},
+        {"name": "Justice", "description": "Czech Commercial Registry (obchodní rejstřík)"},
+        {"name": "Companies", "description": "Unified company hub (ARES + Justice merged)"},
+        {"name": "Contacts", "description": "Contact form and newsletter subscriptions"},
+    ],
 }
 
 # Database

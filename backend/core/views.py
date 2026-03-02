@@ -1,9 +1,26 @@
 from django.core.cache import cache
-from django.http import JsonResponse
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 
+@extend_schema(
+    tags=["Health"],
+    summary="Health check",
+    description="Verifies Django is running and Redis cache is reachable.",
+    responses={
+        200: inline_serializer(
+            "HealthCheck",
+            {
+                "status": serializers.CharField(),
+                "cache": serializers.CharField(),
+            },
+        )
+    },
+)
+@api_view(["GET"])
 def health_check(request):
-    """Health check endpoint — verifies Django is running and Redis is reachable."""
     cache_status = "ok"
     try:
         cache.set("health_check", "ok", 10)
@@ -12,4 +29,4 @@ def health_check(request):
     except Exception:
         cache_status = "error"
 
-    return JsonResponse({"status": "ok", "cache": cache_status})
+    return Response({"status": "ok", "cache": cache_status})

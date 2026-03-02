@@ -114,7 +114,7 @@ class EntityDetailSerializer(serializers.Serializer):
     facts = FactSerializer(many=True)
 
 
-class SearchResultSerializer(serializers.Serializer):
+class JusticeSearchResultSerializer(serializers.Serializer):
     totalCount = serializers.IntegerField()
     offset = serializers.IntegerField()
     limit = serializers.IntegerField()

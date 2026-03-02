@@ -146,6 +146,6 @@ class EconomicSubjectSerializer(serializers.Serializer):
     records = BusinessRecordSerializer(many=True)
 
 
-class SearchResultSerializer(serializers.Serializer):
+class AresSearchResultSerializer(serializers.Serializer):
     totalCount = serializers.IntegerField()
     economicSubjects = EconomicSubjectSerializer(many=True)

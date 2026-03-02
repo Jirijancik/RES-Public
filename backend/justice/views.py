@@ -1,9 +1,10 @@
 """
-Justice API endpoints. Thin handlers: validate → service → serialize → respond.
+Justice API endpoints. Thin handlers: validate -> service -> serialize -> respond.
 """
 from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,15 +18,30 @@ from .serializers import (
     EntitySearchSerializer,
     HistoryEntrySerializer,
     PersonWithFactSerializer,
-    SearchResultSerializer,
+    JusticeSearchResultSerializer,
     SyncStatusSerializer,
 )
 from .services import JusticeService
 
 
 class EntityLookupView(APIView):
-    """GET /v1/justice/entities/?ico={ico}"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Lookup entity by ICO",
+        description=(
+            "Retrieve a single Justice entity by its ICO (identification number). "
+            "Returns the full entity detail including all registered facts."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="ico",
+                description="Company identification number (IČO)",
+                required=True,
+                type=str,
+            ),
+        ],
+        responses={200: EntityDetailSerializer},
+    )
     def get(self, request):
         serializer = EntityLookupSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -37,8 +53,29 @@ class EntityLookupView(APIView):
 
 
 class EntitySearchView(APIView):
-    """GET /v1/justice/entities/search/?name=&legalForm=&location=&status="""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Search Justice entities",
+        description=(
+            "Search the Czech Commercial Registry (obchodní rejstřík) for entities "
+            "by name, legal form, location, or status. Results are paginated."
+        ),
+        parameters=[
+            OpenApiParameter(name="name", description="Entity name (partial match)", required=False, type=str),
+            OpenApiParameter(name="legalForm", description="Legal form code (e.g. 112 = s.r.o.)", required=False, type=str),
+            OpenApiParameter(name="location", description="Court or location filter", required=False, type=str),
+            OpenApiParameter(
+                name="status",
+                description="Filter by entity status",
+                required=False,
+                type=str,
+                enum=["active", "deleted", "all"],
+            ),
+            OpenApiParameter(name="offset", description="Pagination offset (default: 0)", required=False, type=int),
+            OpenApiParameter(name="limit", description="Page size, 1-100 (default: 20)", required=False, type=int),
+        ],
+        responses={200: JusticeSearchResultSerializer},
+    )
     def get(self, request):
         serializer = EntitySearchSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -46,12 +83,16 @@ class EntitySearchView(APIView):
         service = JusticeService()
         result = service.search_entities(serializer.validated_data)
 
-        return Response(SearchResultSerializer(result).data)
+        return Response(JusticeSearchResultSerializer(result).data)
 
 
 class EntityHistoryView(APIView):
-    """GET /v1/justice/entities/{ico}/history/"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Get entity change history",
+        description="Retrieve the chronological history of registered changes for a Justice entity.",
+        responses={200: HistoryEntrySerializer(many=True)},
+    )
     def get(self, request, ico):
         service = JusticeService()
         result = service.get_entity_history(ico)
@@ -60,8 +101,15 @@ class EntityHistoryView(APIView):
 
 
 class EntityPersonsView(APIView):
-    """GET /v1/justice/entities/{ico}/persons/"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Get entity persons",
+        description=(
+            "List all persons (statutory bodies, shareholders, prokura holders) "
+            "associated with a Justice entity, including their function dates."
+        ),
+        responses={200: PersonWithFactSerializer(many=True)},
+    )
     def get(self, request, ico):
         service = JusticeService()
         result = service.get_entity_persons(ico)
@@ -70,8 +118,12 @@ class EntityPersonsView(APIView):
 
 
 class EntityAddressesView(APIView):
-    """GET /v1/justice/entities/{ico}/addresses/"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Get entity addresses",
+        description="List all registered addresses (seat, residence) for a Justice entity.",
+        responses={200: AddressSerializer(many=True)},
+    )
     def get(self, request, ico):
         service = JusticeService()
         result = service.get_entity_addresses(ico)
@@ -80,8 +132,15 @@ class EntityAddressesView(APIView):
 
 
 class DatasetListView(APIView):
-    """GET /v1/justice/datasets/"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="List dataset catalog",
+        description=(
+            "List all dataset sync records from the Justice open data portal (dataor.justice.cz). "
+            "Shows sync status, entity counts, and last sync timestamps."
+        ),
+        responses={200: DatasetInfoSerializer(many=True)},
+    )
     def get(self, request):
         service = JusticeService()
         result = service.list_datasets()
@@ -90,8 +149,12 @@ class DatasetListView(APIView):
 
 
 class SyncStatusView(APIView):
-    """GET /v1/justice/sync/status/"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Get sync health status",
+        description="Summary of the Justice data synchronization pipeline health.",
+        responses={200: SyncStatusSerializer},
+    )
     def get(self, request):
         service = JusticeService()
         result = service.get_sync_status()
@@ -100,8 +163,16 @@ class SyncStatusView(APIView):
 
 
 class EntityDocumentsView(APIView):
-    """GET /v1/justice/entities/{ico}/documents/"""
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Get entity documents (Sbírka listin)",
+        description=(
+            "Retrieve the list of documents from Sbírka listin (Collection of Deeds) "
+            "for a Justice entity. Includes financial statements with parsed data "
+            "when available. Data is scraped from or.justice.cz."
+        ),
+        responses={200: DocumentListSerializer},
+    )
     def get(self, request, ico):
         service = JusticeService()
         result = service.get_entity_documents(ico)
@@ -111,14 +182,20 @@ class EntityDocumentsView(APIView):
 
 @method_decorator(xframe_options_exempt, name="dispatch")
 class DocumentProxyView(APIView):
-    """
-    GET /v1/justice/documents/{download_id}/
-
-    Proxies PDF/XML downloads from or.justice.cz.
-    Required because the justice.cz server needs session cookies
-    that browsers can't set cross-origin.
-    """
-
+    @extend_schema(
+        tags=["Justice"],
+        summary="Download document file",
+        description=(
+            "Proxy download of a PDF or XML document from or.justice.cz. "
+            "Required because the justice.cz server needs session cookies "
+            "that browsers can't set cross-origin."
+        ),
+        responses={
+            (200, "application/pdf"): bytes,
+            (200, "application/xml"): bytes,
+            502: {"type": "object", "properties": {"error": {"type": "string"}}},
+        },
+    )
     def get(self, request, download_id):
         client = justice_sbirka_client
 

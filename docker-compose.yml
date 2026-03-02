@@ -17,6 +17,7 @@ services:
       - ./backend/.env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.production
+      - SECURE_SSL_REDIRECT=False
     volumes:
       # Shared volume: Django's collectstatic writes CSS/JS here during build,
       # and Nginx reads from the same volume to serve them. Without this,

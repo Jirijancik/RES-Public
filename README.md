@@ -290,6 +290,16 @@ When running `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`
 | POST   | `/api/v1/contacts/submit/`     | Submit contact form            |
 | POST   | `/api/v1/contacts/newsletter/` | Subscribe to newsletter        |
 
+### API Documentation
+
+Interactive API documentation is available when the backend is running:
+
+| Tool | URL | Description |
+| ---- | --- | ----------- |
+| Swagger UI | http://localhost/api/docs/ | Interactive API explorer with "Try it out" |
+| ReDoc | http://localhost/api/redoc/ | Clean read-only documentation |
+| OpenAPI Schema | http://localhost/api/schema/ | Raw OpenAPI 3.0 spec (JSON/YAML) |
+
 ---
 
 ## Database GUI (DBeaver)
